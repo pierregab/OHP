@@ -12,8 +12,9 @@ identifies peaks in each spectrum based on a dynamic threshold relative to
 the mean intensity, fits Gaussian profiles to each peak, and
 generates high-quality plots with wavelength calibration and Gaussian overlays.
 
-Additionally, it matches detected peaks to known spectral lines and includes
-this information in the summary file.
+Additionally, it matches detected peaks to known spectral lines using air wavelengths
+when they provide a better fit, computes the associated redshift for each match,
+and includes this information in both the summary file and the plots.
 
 Usage:
     python analyze_stacked_spectra.py [--input_dir INPUT_DIR] [--output_dir OUTPUT_DIR]
@@ -246,9 +247,10 @@ def fit_gaussian(wavelength, intensity, peak_idx, window):
         'y_fit': gaussian(x_data, *popt) if fit_success else None
     }
 
-def match_spectral_lines(peak_wavelength, spectral_lines, tolerance=2.0):
+def match_spectral_lines(peak_wavelength, spectral_lines, tolerance=7.0):
     """
     Matches a peak wavelength to possible spectral lines within a given tolerance.
+    Only uses air wavelengths for matching.
 
     Parameters:
         peak_wavelength (float): Wavelength of the detected peak.
@@ -256,16 +258,41 @@ def match_spectral_lines(peak_wavelength, spectral_lines, tolerance=2.0):
         tolerance (float): Maximum difference in Angstroms to consider a match.
 
     Returns:
-        list of dict: List of matching spectral lines.
+        list of dict: List of matching spectral lines with air wavelength used.
     """
     matches = []
     for line in spectral_lines:
-        # Assuming vacuum wavelengths; change to 'Wavelength_air' if needed
-        if abs(peak_wavelength - line["Wavelength_vacuum"]) <= tolerance:
-            matches.append(line)
+        # Calculate difference for air wavelength only
+        diff_air = abs(peak_wavelength - line["Wavelength_air"])
+
+        # Check if within tolerance
+        if diff_air <= tolerance:
+            matches.append({
+                "Line": line["Line"],
+                "Wavelength": line["Wavelength_air"],
+                "Delta": peak_wavelength - line["Wavelength_air"],
+                "Notes": line["Notes"]
+            })
     return matches
 
-def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, title=None):
+def compute_redshift(observed_wavelength, rest_wavelength):
+    """
+    Computes the redshift based on observed and rest wavelengths.
+
+    Parameters:
+        observed_wavelength (float): Observed wavelength in Angstroms.
+        rest_wavelength (float): Rest (air) wavelength in Angstroms.
+
+    Returns:
+        float: Calculated redshift z.
+    """
+    if rest_wavelength <= 0:
+        return np.nan
+    return (observed_wavelength / rest_wavelength) - 1
+
+from adjustText import adjust_text
+
+def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, title=None, peak_matches=None):
     """
     Plots the spectrum with identified peaks and their Gaussian fits.
 
@@ -276,28 +303,61 @@ def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, titl
         gaussian_fits (list of dict): List containing Gaussian fit parameters for each peak.
         output_file (str): Path to save the plot.
         title (str, optional): Title of the plot.
+        peak_matches (list of list of dict): List containing matched spectral lines for each peak.
     """
-    plt.figure(figsize=(12, 6))
-    
-    # Calculate mean intensity for y-axis adjustment
-    mean_intensity = np.mean(intensity)
-    
-    # Define margin (e.g., 10% of the intensity range)
-    intensity_range = np.max(intensity) - np.min(intensity)
-    margin = 0.1 * intensity_range
-    
-    # Set y-axis limits
-    plt.ylim(mean_intensity - margin, np.max(intensity) + margin)
-    
-    plt.plot(wavelength, intensity, label='Spectrum', color='black')
-    plt.plot(wavelength[peaks], intensity[peaks], 'ro', label='Detected Peaks')
+    plt.figure(figsize=(16, 10))  # Increased figure size for more space
+
+    # Plot the spectrum and detected peaks
+    plt.plot(wavelength, intensity, label='Spectrum', color='black', linewidth=1.5)
+    plt.plot(wavelength[peaks], intensity[peaks], 'ro', label='Detected Peaks', markersize=6)
 
     # Plot Gaussian fits
     for fit in gaussian_fits:
         if fit['success']:
             plt.plot(fit['x_fit'], fit['y_fit'], 'b--',
                      label='Gaussian Fit' if 'Gaussian Fit' not in plt.gca().get_legend_handles_labels()[1] else "")
-    
+
+    # Annotate peaks using adjust_text
+    texts = []
+    if peak_matches is not None:
+        for idx, peak_idx in enumerate(peaks):
+            matches = peak_matches[idx]
+            if matches:
+                # Choose the best match
+                best_match = min(matches, key=lambda m: abs(m['Delta']))
+                z = compute_redshift(gaussian_fits[idx]['mean'], best_match['Wavelength'])
+                delta = best_match['Delta']
+                annotation_text = f"{best_match['Line']} (Air)\nΔ={delta:.2f} Å\nz={z:.4f}"
+                x = gaussian_fits[idx]['mean']
+                y = intensity[peak_idx]
+                text = plt.text(x, y, annotation_text, fontsize=10, color='blue', ha='center', va='bottom')
+                texts.append(text)
+
+    # Dynamically adjust text placements using adjust_text
+    adjust_text(
+        texts,
+        arrowprops=dict(
+            arrowstyle="-|>",  # Arrow style with a clean arrowhead
+            color='darkblue',  # Arrow color
+            lw=1.2,            # Line width of the arrow
+            shrinkA=35,        # Adjusted to position arrow start appropriately
+            shrinkB=5          # Slight shrink to avoid touching the point directly
+        ),
+        expand_points=(1.5, 1.7),  # Expand space around points
+        expand_text=(4.0, 4.5),    # Further expand space around text for farther placement
+        force_text=(2, 2.4),       # Increase force to push texts farther
+        force_points=(1.5, 1.8),   # Increase force to push points away from texts
+        lim=1000,                  # Increase the number of iterations for better adjustments
+        only_move={'texts': 'y', 'points': 'xy'},  # Allow movement in both directions
+        add_objects=[plt.gca().lines, plt.gca().collections],  # Avoid overlaps with plot elements
+        expand=(1.5, 1),           # General expansion to provide more space
+        arrow_length_ratio=0.1     # Adjust arrow length relative to the plot
+    )
+
+    # Adjust plot margins to provide more space for annotations
+    plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+
+    # Add labels, title, and grid
     plt.xlabel('Wavelength (Å)', fontsize=14)
     plt.ylabel('Intensity', fontsize=14)
     if title:
@@ -305,6 +365,8 @@ def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, titl
     plt.legend(fontsize=12)
     plt.grid(True, which='both', ls='--', lw=0.5)
     plt.tight_layout()
+
+    # Save and close the plot
     plt.savefig(output_file, dpi=300)
     plt.close()
 
@@ -318,9 +380,10 @@ def ensure_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-def format_peak_detail(peak, spectral_lines, tolerance=2.0, width=13):
+def format_peak_detail(peak, spectral_lines, tolerance=7.0, width=13):
     """
-    Formats the peak detail for summary, including possible spectral line matches.
+    Formats the peak detail for summary, including possible spectral line matches and redshift.
+    Only air wavelengths are considered.
 
     Parameters:
         peak (dict): Dictionary containing peak details.
@@ -331,31 +394,63 @@ def format_peak_detail(peak, spectral_lines, tolerance=2.0, width=13):
     Returns:
         str: Formatted peak detail string.
     """
+    # Define fixed widths for each column
+    peak_index_width = 10
+    wavelength_width = 14
+    amplitude_width = 9
+    sigma_width = 9
+    fit_success_width = 11
+    spectral_line_width = 16
+    line_wavelength_width = 18
+    delta_width = 9
+    z_width = 8
+
+    # Format Peak Index
+    peak_index_str = f"{peak['peak_index']}".rjust(peak_index_width)
+
+    # Format Wavelength
     if not np.isnan(peak['wavelength']):
-        wavelength_str = f"{peak['wavelength']:.2f}".rjust(14)
+        wavelength_str = f"{peak['wavelength']:.2f}".rjust(wavelength_width)
     else:
-        wavelength_str = "N/A".rjust(13)
+        wavelength_str = "N/A".rjust(wavelength_width)
 
+    # Format Amplitude
     if not np.isnan(peak['amplitude']):
-        amplitude_str = f"{peak['amplitude']:.2f}".rjust(9)
+        amplitude_str = f"{peak['amplitude']:.2f}".rjust(amplitude_width)
     else:
-        amplitude_str = "N/A".rjust(9)
+        amplitude_str = "N/A".rjust(amplitude_width)
 
+    # Format Sigma
     if not np.isnan(peak['sigma']):
-        sigma_str = f"{peak['sigma']:.2f}".rjust(9)
+        sigma_str = f"{peak['sigma']:.2f}".rjust(sigma_width)
     else:
-        sigma_str = "N/A".rjust(9)
+        sigma_str = "N/A".rjust(sigma_width)
 
-    fit_success_str = "Yes".rjust(11) if peak['fit_success'] else "No".rjust(11)
+    # Format Fit Success
+    fit_success_str = "Yes".rjust(fit_success_width) if peak['fit_success'] else "No".rjust(fit_success_width)
 
-    # Match spectral lines
-    matches = match_spectral_lines(peak['wavelength'], spectral_lines, tolerance)
+    # Match spectral lines using only air wavelengths
+    if not np.isnan(peak['wavelength']):
+        matches = match_spectral_lines(peak['wavelength'], spectral_lines, tolerance)
+    else:
+        matches = []
+
     if matches:
-        matched_lines = "; ".join([f"{m['Line']} ({m['Wavelength_vacuum']} Å)" for m in matches])
+        # Each match will have: Spectral Line | Line Wavelength | Delta | z
+        matched_lines = "; ".join([
+            f"{m['Line']:<{spectral_line_width}} | {m['Wavelength']:<{line_wavelength_width}.2f} Å | Δ={m['Delta']:<{delta_width - 2}.2f} Å | z={compute_redshift(peak['wavelength'], m['Wavelength']):<{z_width}.4f}"
+            for m in matches
+        ])
     else:
-        matched_lines = "None"
+        # If no matches, fill the fields with "None" appropriately
+        matched_lines = "None".ljust(spectral_line_width + line_wavelength_width + delta_width + z_width + 9)  # 9 accounts for separators and labels
 
-    return f"  {peak['peak_index']:10d} | {wavelength_str} | {amplitude_str} | {sigma_str} | {fit_success_str} | {matched_lines}\n"
+    # Combine all fields into a single formatted string
+    formatted_str = (
+        f"  {peak_index_str} | {wavelength_str} | {amplitude_str} | {sigma_str} | {fit_success_str} | {matched_lines}\n"
+    )
+
+    return formatted_str
 
 # ======================================================================
 # Main Function
@@ -370,13 +465,13 @@ def main():
                         help='Directory to save the plots (default: Reduced/stacked/plots)')
     parser.add_argument('--calibration_file', type=str, default='reducing/reduced/wavelength_calibration.dat',
                         help='Path to the wavelength calibration file (default: reducing/reduced/wavelength_calibration.dat)')
-    parser.add_argument('--height_sigma', type=float, default=1.0,
-                        help='Number of standard deviations above the mean for peak detection (default: 3.0)')
+    parser.add_argument('--height_sigma', type=float, default=0.5,
+                        help='Number of standard deviations above the mean for peak detection (default: 1.0)')
     parser.add_argument('--distance', type=float, default=10,
                         help='Minimum distance between peaks in pixels (default: 10)')
     parser.add_argument('--prominence', type=float, default=300,
-                        help='Minimum prominence of peaks (default: 1000)')
-    parser.add_argument('--fitting_window', type=int, default=5,
+                        help='Minimum prominence of peaks (default: 300)')
+    parser.add_argument('--fitting_window', type=int, default=3,
                         help='Number of pixels on each side of a peak to include in Gaussian fit (default: 5)')
     parser.add_argument('--save_format', type=str, choices=['png', 'pdf'], default='png',
                         help='Format to save plots (default: png)')
@@ -439,11 +534,22 @@ def main():
                 else:
                     print(f"  Peak at index {peak_idx} fit failed.")
 
+            # Match peaks to spectral lines and compute redshift
+            peak_matches = []
+            for idx, peak_idx in enumerate(peaks):
+                fit = gaussian_fits[idx]
+                if fit['success']:
+                    peak_wavelength = fit['mean']
+                    matches = match_spectral_lines(peak_wavelength, SPECTRAL_LINES, tolerance=7.0)
+                    peak_matches.append(matches)
+                else:
+                    peak_matches.append([])
+
             # Plotting
             base_name = os.path.splitext(os.path.basename(fits_file))[0]
             plot_filename = os.path.join(output_dir, f"{base_name}_peaks.{save_format}")
             title = f"Spectrum with Detected Peaks: {base_name}"
-            plot_spectrum(wavelength, data, peaks, gaussian_fits, plot_filename, title=title)
+            plot_spectrum(wavelength, data, peaks, gaussian_fits, plot_filename, title=title, peak_matches=peak_matches)
             print(f"Plot saved to {plot_filename}")
 
             # Append to summary
@@ -479,11 +585,11 @@ def main():
                 f.write(f"File: {entry['file']}\n")
                 f.write(f"Number of Peaks Detected: {entry['num_peaks']}\n")
                 f.write("Peak Details:\n")
-                f.write("  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines\n")
-                f.write("-----------------------------------------------------------------------------------------------\n")
+                f.write("  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Spectral Line    | Line Wavelength (Å)  | Delta (Å)   | z      \n")
+                f.write("-----------------------------------------------------------------------------------------------------------------------------------------\n")
                 for peak in entry['peaks']:
                     # Use the updated helper function to format each peak detail
-                    peak_detail_str = format_peak_detail(peak, SPECTRAL_LINES, tolerance=4.0)
+                    peak_detail_str = format_peak_detail(peak, SPECTRAL_LINES, tolerance=7.0)
                     f.write(peak_detail_str)
                 f.write("\n")
         print(f"Summary of peak detections and Gaussian fits saved to {summary_file}")
