@@ -1,35 +1,75 @@
 Peak Detection and Gaussian Fit Summary
 =======================================
 
-File: NGC_1275_Mon Dec  2 2024_23_stacked.fits
-Number of Peaks Detected: 0
+File: NGC_2392_side_stacked.fits
+Number of Peaks Detected: 5
 Peak Details:
-  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines
+-----------------------------------------------------------------------------------------------
+         975 |        6548.24 |   5761.28 |      0.89 |         Yes | [NII]6549 (6549.84 Å)
+        1010 |        6563.54 |  26423.16 |      0.97 |         Yes | Hα (6564.61 Å)
+        1054 |        6583.61 |  17106.46 |      0.74 |         Yes | [NII]6583 (6585.23 Å)
+        1352 |        6716.55 |   2576.28 |      1.04 |         Yes | [SII]6717 (6718.32 Å)
+        1384 |        6730.93 |   2683.25 |      1.02 |         Yes | [SII]6731 (6732.71 Å)
+
+File: M82_stacked.fits
+Number of Peaks Detected: 5
+Peak Details:
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines
+-----------------------------------------------------------------------------------------------
+         988 |        6553.42 |   2054.54 |      1.89 |         Yes | [NII]6549 (6549.84 Å)
+        1020 |        6568.05 |   8475.81 |      1.46 |         Yes | Hα (6564.61 Å)
+        1066 |        6588.74 |   4943.47 |      1.52 |         Yes | [NII]6583 (6585.23 Å)
+        1364 |        6721.70 |   1540.32 |      2.11 |         Yes | [SII]6717 (6718.32 Å)
+        1396 |        6736.13 |   1631.64 |      1.97 |         Yes | [SII]6731 (6732.71 Å)
+
+File: NGC_1275_Mon Dec  2 2024_23_stacked.fits
+Number of Peaks Detected: 1
+Peak Details:
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines
+-----------------------------------------------------------------------------------------------
+        1264 |        6678.24 |   1171.70 |      9.72 |         Yes | He I (6679.996 Å)
 
 File: NGC_40_center_Mon Dec  2 2024_2_stacked.fits
-Number of Peaks Detected: 3
+Number of Peaks Detected: 4
 Peak Details:
-  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success
-         973 |       6547.55 |   7112.93 |      1.25 | Yes
-        1006 |       6562.28 |  21520.24 |      1.05 | Yes
-        1053 |       6582.93 |  18491.56 |      1.03 | Yes
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines
+-----------------------------------------------------------------------------------------------
+         973 |        6547.37 |   7112.93 |      1.25 |         Yes | [NII]6549 (6549.84 Å)
+        1006 |        6562.10 |  21520.24 |      1.05 |         Yes | Hα (6564.61 Å)
+        1053 |        6582.74 |  18491.56 |      1.03 |         Yes | [NII]6583 (6585.23 Å)
+        1383 |        6730.29 |   3357.16 |      2.59 |         Yes | [SII]6731 (6732.71 Å)
+
+File: M82_side_stacked.fits
+Number of Peaks Detected: 0
+Peak Details:
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines
+-----------------------------------------------------------------------------------------------
 
 File: NGC_40_edge_Mon Dec  2 2024_22_stacked.fits
-Number of Peaks Detected: 3
+Number of Peaks Detected: 4
 Peak Details:
-  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success
-         974 |       6547.54 |  13461.74 |      0.61 | Yes
-        1006 |       6562.27 |  40659.32 |      0.62 | Yes
-        1053 |       6582.92 |  40483.53 |      0.59 | Yes
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines
+-----------------------------------------------------------------------------------------------
+         974 |        6547.35 |  13461.74 |      0.61 |         Yes | [NII]6549 (6549.84 Å)
+        1006 |        6562.09 |  40659.32 |      0.62 |         Yes | Hα (6564.61 Å)
+        1053 |        6582.73 |  40483.53 |      0.59 |         Yes | [NII]6583 (6585.23 Å)
+        1382 |        6730.10 |   2898.03 |      0.83 |         Yes | [SII]6731 (6732.71 Å)
 
 File: T_TAU_Mon Dec  2 2024_21_stacked.fits
-Number of Peaks Detected: 6
+Number of Peaks Detected: 2
 Peak Details:
-  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success
-         422 |       6300.75 |   6754.42 |      1.93 | Yes
-         564 |       6364.38 |   4414.66 |      3.21 | Yes
-        1007 |       6563.26 |  37670.18 |      1.74 | Yes
-        1055 |       6583.85 |   4953.22 |      3.55 | Yes
-        1353 |       6716.99 |   4479.38 |      3.26 | Yes
-        1385 |       6731.43 |   5374.95 |      2.49 | Yes
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines
+-----------------------------------------------------------------------------------------------
+         422 |        6300.56 |   6754.42 |      1.93 |         Yes | [O I]6300 (6302.04 Å)
+        1007 |        6563.07 |  37670.18 |      1.74 |         Yes | Hα (6564.61 Å)
+
+File: NGC_2392_300s_stacked.fits
+Number of Peaks Detected: 3
+Peak Details:
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines
+-----------------------------------------------------------------------------------------------
+         980 |        6550.44 |   5059.93 |      1.87 |         Yes | [NII]6549 (6549.84 Å)
+        1013 |        6564.80 |  18242.48 |      1.33 |         Yes | Hα (6564.61 Å)
+        1060 |        6585.92 |  11063.06 |      1.21 |         Yes | [NII]6583 (6585.23 Å)
 

@@ -8,13 +8,17 @@ Author: Bibal Sobeaux Pierre Gabriel
 Date: 2024-12-04
 
 This script scans the 'Reduced/stacked' directory for stacked FITS spectra,
-identifies peaks in each spectrum, fits Gaussian profiles to each peak, and
+identifies peaks in each spectrum based on a dynamic threshold relative to
+the mean intensity, fits Gaussian profiles to each peak, and
 generates high-quality plots with wavelength calibration and Gaussian overlays.
+
+Additionally, it matches detected peaks to known spectral lines and includes
+this information in the summary file.
 
 Usage:
     python analyze_stacked_spectra.py [--input_dir INPUT_DIR] [--output_dir OUTPUT_DIR]
                                      [--calibration_file CALIBRATION_FILE]
-                                     [--height HEIGHT] [--distance DISTANCE]
+                                     [--height_sigma HEIGHT_SIGMA] [--distance DISTANCE]
                                      [--prominence PROMINENCE] [--fitting_window FITTING_WINDOW]
                                      [--save_format SAVE_FORMAT]
 
@@ -40,6 +44,69 @@ import os
 import argparse
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
+
+# ======================================================================
+# Spectral Lines Data
+# ======================================================================
+
+SPECTRAL_LINES = [
+    {"Line": "Ca II K", "Wavelength_air": 3933.663, "Wavelength_vacuum": 3934.777, "Notes": "IS absorb line"},
+    {"Line": "Ca II H", "Wavelength_air": 3968.468, "Wavelength_vacuum": 3969.591, "Notes": "IS absorb line"},
+    {"Line": "[OII]3726", "Wavelength_air": 3726.03, "Wavelength_vacuum": 3727.09, "Notes": ""},
+    {"Line": "[OII]3729", "Wavelength_air": 3728.82, "Wavelength_vacuum": 3729.88, "Notes": ""},
+    {"Line": "[NeIII]", "Wavelength_air": 3868.71, "Wavelength_vacuum": 3869.81, "Notes": ""},
+    {"Line": "[NeIII]", "Wavelength_air": 3967.41, "Wavelength_vacuum": 3968.53, "Notes": ""},
+    {"Line": "He I", "Wavelength_air": 3888.65, "Wavelength_vacuum": 3889.75, "Notes": ""},
+    {"Line": "H12", "Wavelength_air": 3750.15, "Wavelength_vacuum": 3751.22, "Notes": ""},
+    {"Line": "H11", "Wavelength_air": 3770.63, "Wavelength_vacuum": 3771.70, "Notes": ""},
+    {"Line": "H10", "Wavelength_air": 3797.90, "Wavelength_vacuum": 3798.98, "Notes": ""},
+    {"Line": "H9", "Wavelength_air": 3835.39, "Wavelength_vacuum": 3836.48, "Notes": ""},
+    {"Line": "H8", "Wavelength_air": 3889.05, "Wavelength_vacuum": 3890.15, "Notes": ""},
+    {"Line": "Hε", "Wavelength_air": 3970.07, "Wavelength_vacuum": 3971.19, "Notes": ""},
+    {"Line": "Hδ", "Wavelength_air": 4101.76, "Wavelength_vacuum": 4102.92, "Notes": ""},
+    {"Line": "Hγ", "Wavelength_air": 4340.47, "Wavelength_vacuum": 4341.69, "Notes": ""},
+    {"Line": "Hβ", "Wavelength_air": 4861.33, "Wavelength_vacuum": 4862.69, "Notes": ""},
+    {"Line": "Hα", "Wavelength_air": 6562.79, "Wavelength_vacuum": 6564.61, "Notes": "NIST"},
+    {"Line": "[OIII]4363", "Wavelength_air": 4363.21, "Wavelength_vacuum": 4364.44, "Notes": ""},
+    {"Line": "[OIII]4959", "Wavelength_air": 4958.92, "Wavelength_vacuum": 4960.30, "Notes": ""},
+    {"Line": "[OIII]5007", "Wavelength_air": 5006.84, "Wavelength_vacuum": 5008.24, "Notes": ""},
+    {"Line": "Mg b", "Wavelength_air": 5167.321, "Wavelength_vacuum": 5168.761, "Notes": ""},
+    {"Line": "Mg b", "Wavelength_air": 5172.684, "Wavelength_vacuum": 5174.125, "Notes": ""},
+    {"Line": "Mg b", "Wavelength_air": 5183.604, "Wavelength_vacuum": 5185.048, "Notes": ""},
+    {"Line": "[O I]5577", "Wavelength_air": 5577.3387, "Wavelength_vacuum": 5578.8874, "Notes": "Strong sky line"},
+    {"Line": "[NII]5755", "Wavelength_air": 5754.64, "Wavelength_vacuum": 5756.24, "Notes": ""},
+    {"Line": "He I", "Wavelength_air": 5875.67, "Wavelength_vacuum": 5877.30, "Notes": ""},
+    {"Line": "Na I", "Wavelength_air": 5889.951, "Wavelength_vacuum": 5891.583, "Notes": "IS absorb line"},
+    {"Line": "Na I", "Wavelength_air": 5895.924, "Wavelength_vacuum": 5897.558, "Notes": "IS absorb line"},
+    {"Line": "[O I]6300", "Wavelength_air": 6300.30, "Wavelength_vacuum": 6302.04, "Notes": ""},
+    {"Line": "[O I]6363", "Wavelength_air": 6363.776, "Wavelength_vacuum": 6364.60, "Notes": "NIST"},
+    {"Line": "[NII]6549", "Wavelength_air": 6548.03, "Wavelength_vacuum": 6549.84, "Notes": ""},
+    {"Line": "[NII]6583", "Wavelength_air": 6583.41, "Wavelength_vacuum": 6585.23, "Notes": ""},
+    {"Line": "He I", "Wavelength_air": 6678.152, "Wavelength_vacuum": 6679.996, "Notes": ""},
+    {"Line": "[SII]6717", "Wavelength_air": 6716.47, "Wavelength_vacuum": 6718.32, "Notes": ""},
+    {"Line": "[SII]6731", "Wavelength_air": 6730.85, "Wavelength_vacuum": 6732.71, "Notes": ""},
+    {"Line": "[S III]", "Wavelength_air": 6312.06, "Wavelength_vacuum": 6313.81, "Notes": "Use with [SIII]9068 as T diagnostic"},
+    {"Line": "[O I]5577", "Wavelength_air": 5577.3387, "Wavelength_vacuum": 5578.8874, "Notes": "Strong sky line"},
+    {"Line": "[ArIII]", "Wavelength_air": 7135.8, "Wavelength_vacuum": 7137.8, "Notes": ""},
+    {"Line": "[ArIII]", "Wavelength_air": 7751.1, "Wavelength_vacuum": 7753.2, "Notes": ""},
+    {"Line": "Ca II", "Wavelength_air": 8498.03, "Wavelength_vacuum": 8500.36, "Notes": "Ca II triplet"},
+    {"Line": "Ca II", "Wavelength_air": 8542.09, "Wavelength_vacuum": 8544.44, "Notes": "Ca II triplet"},
+    {"Line": "Ca II", "Wavelength_air": 8662.14, "Wavelength_vacuum": 8664.52, "Notes": "Ca II triplet"},
+    {"Line": "[SIII]9068", "Wavelength_air": 9068.6, "Wavelength_vacuum": 9071.1, "Notes": "Use with [SIII]6312 as T diagnostic"},
+    {"Line": "[SIII]9530", "Wavelength_air": 9530.6, "Wavelength_vacuum": 9533.2, "Notes": ""},
+    {"Line": "P11", "Wavelength_air": 8862.783, "Wavelength_vacuum": 8865.217, "Notes": ""},
+    {"Line": "P10", "Wavelength_air": 9014.910, "Wavelength_vacuum": 9017.385, "Notes": ""},
+    {"Line": "P9", "Wavelength_air": 9229.014, "Wavelength_vacuum": 9231.547, "Notes": ""},
+    {"Line": "P8", "Wavelength_air": 9545.972, "Wavelength_vacuum": 9548.590, "Notes": ""},
+    {"Line": "P7", "Wavelength_air": 10049.373, "Wavelength_vacuum": 10052.128, "Notes": ""},
+    {"Line": "Pγ", "Wavelength_air": 10938.095, "Wavelength_vacuum": 10941.091, "Notes": ""},
+    {"Line": "Pβ", "Wavelength_air": 12818.08, "Wavelength_vacuum": 12821.59, "Notes": "(1.281808 µm)"},
+    {"Line": "Pα", "Wavelength_air": 18751.01, "Wavelength_vacuum": 18756.13, "Notes": "(1.875101 µm)"},
+    {"Line": "[Fe II]", "Wavelength_air": 16400.0, "Wavelength_vacuum": 16440.0, "Notes": "(1.64 µm)"},  # Approximate values
+    {"Line": "Brγ", "Wavelength_air": 21655.29, "Wavelength_vacuum": 21661.20, "Notes": "(2.165529 µm)"},
+    {"Line": "H₂ S(1) 1-0", "Wavelength_air": 21220.0, "Wavelength_vacuum": 21220.0, "Notes": "(2.122 µm)"},  # Approximate values
+    {"Line": "H₂ S(0) 1-0", "Wavelength_air": 22230.0, "Wavelength_vacuum": 22230.0, "Notes": "(2.223 µm)"},  # Approximate values
+]
 
 # ======================================================================
 # Helper Functions
@@ -179,6 +246,25 @@ def fit_gaussian(wavelength, intensity, peak_idx, window):
         'y_fit': gaussian(x_data, *popt) if fit_success else None
     }
 
+def match_spectral_lines(peak_wavelength, spectral_lines, tolerance=2.0):
+    """
+    Matches a peak wavelength to possible spectral lines within a given tolerance.
+
+    Parameters:
+        peak_wavelength (float): Wavelength of the detected peak.
+        spectral_lines (list of dict): List of spectral lines with their properties.
+        tolerance (float): Maximum difference in Angstroms to consider a match.
+
+    Returns:
+        list of dict: List of matching spectral lines.
+    """
+    matches = []
+    for line in spectral_lines:
+        # Assuming vacuum wavelengths; change to 'Wavelength_air' if needed
+        if abs(peak_wavelength - line["Wavelength_vacuum"]) <= tolerance:
+            matches.append(line)
+    return matches
+
 def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, title=None):
     """
     Plots the spectrum with identified peaks and their Gaussian fits.
@@ -192,16 +278,28 @@ def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, titl
         title (str, optional): Title of the plot.
     """
     plt.figure(figsize=(12, 6))
+    
+    # Calculate mean intensity for y-axis adjustment
+    mean_intensity = np.mean(intensity)
+    
+    # Define margin (e.g., 10% of the intensity range)
+    intensity_range = np.max(intensity) - np.min(intensity)
+    margin = 0.1 * intensity_range
+    
+    # Set y-axis limits
+    plt.ylim(mean_intensity - margin, np.max(intensity) + margin)
+    
     plt.plot(wavelength, intensity, label='Spectrum', color='black')
     plt.plot(wavelength[peaks], intensity[peaks], 'ro', label='Detected Peaks')
 
     # Plot Gaussian fits
     for fit in gaussian_fits:
         if fit['success']:
-            plt.plot(fit['x_fit'], fit['y_fit'], 'b--', label='Gaussian Fit' if 'Gaussian Fit' not in plt.gca().get_legend_handles_labels()[1] else "")
-
+            plt.plot(fit['x_fit'], fit['y_fit'], 'b--',
+                     label='Gaussian Fit' if 'Gaussian Fit' not in plt.gca().get_legend_handles_labels()[1] else "")
+    
     plt.xlabel('Wavelength (Å)', fontsize=14)
-    plt.ylabel('Intensity (ADU)', fontsize=14)
+    plt.ylabel('Intensity', fontsize=14)
     if title:
         plt.title(title, fontsize=16)
     plt.legend(fontsize=12)
@@ -220,19 +318,21 @@ def ensure_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-def format_peak_detail(peak, width=13):
+def format_peak_detail(peak, spectral_lines, tolerance=2.0, width=13):
     """
-    Formats the peak detail for summary.
+    Formats the peak detail for summary, including possible spectral line matches.
 
     Parameters:
         peak (dict): Dictionary containing peak details.
+        spectral_lines (list of dict): List of spectral lines for matching.
+        tolerance (float): Tolerance for matching wavelengths.
         width (int): Width for formatting.
 
     Returns:
         str: Formatted peak detail string.
     """
     if not np.isnan(peak['wavelength']):
-        wavelength_str = f"{peak['wavelength']:.2f}".rjust(13)
+        wavelength_str = f"{peak['wavelength']:.2f}".rjust(14)
     else:
         wavelength_str = "N/A".rjust(13)
 
@@ -246,9 +346,16 @@ def format_peak_detail(peak, width=13):
     else:
         sigma_str = "N/A".rjust(9)
 
-    fit_success_str = "Yes" if peak['fit_success'] else "No"
+    fit_success_str = "Yes".rjust(11) if peak['fit_success'] else "No".rjust(11)
 
-    return f"  {peak['peak_index']:10d} | {wavelength_str} | {amplitude_str} | {sigma_str} | {fit_success_str}\n"
+    # Match spectral lines
+    matches = match_spectral_lines(peak['wavelength'], spectral_lines, tolerance)
+    if matches:
+        matched_lines = "; ".join([f"{m['Line']} ({m['Wavelength_vacuum']} Å)" for m in matches])
+    else:
+        matched_lines = "None"
+
+    return f"  {peak['peak_index']:10d} | {wavelength_str} | {amplitude_str} | {sigma_str} | {fit_success_str} | {matched_lines}\n"
 
 # ======================================================================
 # Main Function
@@ -263,11 +370,11 @@ def main():
                         help='Directory to save the plots (default: Reduced/stacked/plots)')
     parser.add_argument('--calibration_file', type=str, default='reducing/reduced/wavelength_calibration.dat',
                         help='Path to the wavelength calibration file (default: reducing/reduced/wavelength_calibration.dat)')
-    parser.add_argument('--height', type=float, default=4000,
-                        help='Minimum height of peaks for detection (default: 4000)')
+    parser.add_argument('--height_sigma', type=float, default=1.0,
+                        help='Number of standard deviations above the mean for peak detection (default: 3.0)')
     parser.add_argument('--distance', type=float, default=10,
                         help='Minimum distance between peaks in pixels (default: 10)')
-    parser.add_argument('--prominence', type=float, default=1000,
+    parser.add_argument('--prominence', type=float, default=300,
                         help='Minimum prominence of peaks (default: 1000)')
     parser.add_argument('--fitting_window', type=int, default=5,
                         help='Number of pixels on each side of a peak to include in Gaussian fit (default: 5)')
@@ -278,7 +385,7 @@ def main():
     input_dir = args.input_dir
     output_dir = args.output_dir
     calibration_file = args.calibration_file
-    height = args.height
+    height_sigma = args.height_sigma
     distance = args.distance
     prominence = args.prominence
     fitting_window = args.fitting_window
@@ -310,10 +417,17 @@ def main():
             spectrum_length = len(data)
             wavelength = get_wavelength_axis(calibration_file, spectrum_length)
 
-            # Detect peaks
-            peaks = detect_peaks(wavelength, data, height=height, distance=distance, prominence=prominence)
+            # Calculate mean and standard deviation
+            mean_intensity = np.mean(data)
+            std_intensity = np.std(data)
+
+            # Set dynamic height based on mean and std
+            dynamic_height = mean_intensity + height_sigma * std_intensity
+
+            # Detect peaks with dynamic height
+            peaks = detect_peaks(wavelength, data, height=dynamic_height, distance=distance, prominence=prominence)
             num_peaks = len(peaks)
-            print(f"Detected {num_peaks} peaks.")
+            print(f"Detected {num_peaks} peaks with height > mean + {height_sigma}*std.")
 
             # Fit Gaussians to each peak
             gaussian_fits = []
@@ -365,10 +479,11 @@ def main():
                 f.write(f"File: {entry['file']}\n")
                 f.write(f"Number of Peaks Detected: {entry['num_peaks']}\n")
                 f.write("Peak Details:\n")
-                f.write("  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success\n")
+                f.write("  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success | Possible Spectral Lines\n")
+                f.write("-----------------------------------------------------------------------------------------------\n")
                 for peak in entry['peaks']:
-                    # Use the helper function to format each peak detail
-                    peak_detail_str = format_peak_detail(peak)
+                    # Use the updated helper function to format each peak detail
+                    peak_detail_str = format_peak_detail(peak, SPECTRAL_LINES, tolerance=4.0)
                     f.write(peak_detail_str)
                 f.write("\n")
         print(f"Summary of peak detections and Gaussian fits saved to {summary_file}")
