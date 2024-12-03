@@ -459,17 +459,17 @@ def format_peak_detail(peak, spectral_lines, tolerance=7.0, width=13):
 def main():
     # Argument Parser
     parser = argparse.ArgumentParser(description="Analyze Stacked Spectra and Plot Peaks with Gaussian Fits")
-    parser.add_argument('--input_dir', type=str, default='reducing/Reduced/stacked',
-                        help='Directory containing stacked FITS spectra (default: reducing/Reduced/stacked)')
+    parser.add_argument('--input_dir', type=str, default='spectrum_reduction/Reduced/stacked',
+                        help='Directory containing stacked FITS spectra (default: spectrum_reduction/Reduced/stacked)')
     parser.add_argument('--output_dir', type=str, default='Reduced/stacked/plots',
                         help='Directory to save the plots (default: Reduced/stacked/plots)')
-    parser.add_argument('--calibration_file', type=str, default='reducing/reduced/wavelength_calibration.dat',
-                        help='Path to the wavelength calibration file (default: reducing/reduced/wavelength_calibration.dat)')
-    parser.add_argument('--height_sigma', type=float, default=0.5,
+    parser.add_argument('--calibration_file', type=str, default='spectrum_reduction/reduced/wavelength_calibration.dat',
+                        help='Path to the wavelength calibration file (default: spectrum_reduction/reduced/wavelength_calibration.dat)')
+    parser.add_argument('--height_sigma', type=float, default=0.02,
                         help='Number of standard deviations above the mean for peak detection (default: 1.0)')
     parser.add_argument('--distance', type=float, default=10,
                         help='Minimum distance between peaks in pixels (default: 10)')
-    parser.add_argument('--prominence', type=float, default=300,
+    parser.add_argument('--prominence', type=float, default=100,
                         help='Minimum prominence of peaks (default: 300)')
     parser.add_argument('--fitting_window', type=int, default=3,
                         help='Number of pixels on each side of a peak to include in Gaussian fit (default: 5)')
