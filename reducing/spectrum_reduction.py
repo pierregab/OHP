@@ -183,7 +183,7 @@ class SpectralReduction:
         self.atlas_wavelengths = None
         self.calibration_residuals = None
         self.calibration_peaks = None
-    
+
     def create_master_bias(self):
         """Creates a master bias frame."""
         self.gui.update_status("Creating master bias...")
@@ -202,7 +202,7 @@ class SpectralReduction:
         write_spectrum(MASTER_BIAS_FILE, self.master_bias)
         self.gui.update_status(f"Master Bias saved to {MASTER_BIAS_FILE}")
         return self.master_bias
-    
+
     def create_master_flat(self):
         """Creates a master flat frame."""
         self.gui.update_status("Creating master flat...")
@@ -215,7 +215,7 @@ class SpectralReduction:
 
         # Optionally remove bad flats based on visual inspection
         # For example, if the first 3 flats are bad:
-        bad_flat_indices = [0, 1, 2]  # Adjust based on your data
+        bad_flat_indices = []  # Adjust based on your data
         flat_files = remove_bad_flats(flat_files, bad_flat_indices)
 
         normalized_flats = []
@@ -237,7 +237,7 @@ class SpectralReduction:
         write_spectrum(MASTER_FLAT_FILE, self.master_flat)
         self.gui.update_status(f"Master Flat saved to {MASTER_FLAT_FILE}")
         return self.master_flat
-    
+
     def calibrate_wavelength(self):
         """Performs wavelength calibration using ThAr lamp spectra."""
         self.gui.update_status("Performing wavelength calibration...")
@@ -691,10 +691,25 @@ class ReductionGUI:
         if filename:
             # Read and plot the spectrum
             x, data = read_spectrum(filename)
+            # Check if wavelength calibration is available
+            if os.path.exists(CALIB_FILE):
+                # Load wavelength calibration
+                wavelengths = np.loadtxt(CALIB_FILE)
+                if len(wavelengths) != len(data):
+                    messagebox.showwarning("Calibration Mismatch", "Wavelength calibration data does not match the spectrum length.")
+                    x_axis = x
+                    x_label = 'Pixel'
+                else:
+                    x_axis = wavelengths
+                    x_label = 'Wavelength (Angstrom)'
+            else:
+                x_axis = x
+                x_label = 'Pixel'
+
             plt.figure(figsize=(10, 6))
-            plt.plot(x, data)
+            plt.plot(x_axis, data)
             plt.title(f"Inspecting {os.path.basename(filename)}")
-            plt.xlabel('Pixel')
+            plt.xlabel(x_label)
             plt.ylabel('Intensity')
             plt.show()
         else:
