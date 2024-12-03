@@ -260,7 +260,7 @@ class SpectralReduction:
         self.thar_data = data
 
         # Detect peaks
-        peaks, _ = find_peaks(data, height=12000)
+        peaks, _ = find_peaks(data, height=6000) #12000 before 
         self.calibration_peaks = peaks
 
         # Fit Gaussians to the peaks for better centroid determination
@@ -454,30 +454,30 @@ class SpectralReduction:
     def stack_reduced_spectra(self, files_to_stack, stacking_method):
         """
         Stacks selected reduced spectra using the specified stacking method.
-        
+
         The stacked spectrum is saved in the 'Reduced/stacked' directory.
         The filename is based on the common prefix of the selected files.
         If no common prefix exists, a warning is displayed and a default name is used.
-        
+
         Parameters:
             files_to_stack (list): List of file paths to stack.
             stacking_method (str): Method to stack spectra ('Median', 'Average', 'Weighted Average').
-        
+
         Returns:
             np.ndarray: The stacked spectrum data, or None if stacking fails.
         """
         self.gui.update_status("Stacking reduced spectra...")
-        
+
         if not files_to_stack:
             self.gui.update_status("No reduced spectra selected for stacking.")
             return None
 
         # Extract base filenames from the selected files
         base_names = [os.path.basename(f) for f in files_to_stack]
-        
+
         # Find the common prefix among the filenames
         common_prefix = os.path.commonprefix(base_names)
-        
+
         # Clean the common prefix by removing trailing underscores, hyphens, or dots
         common_prefix = common_prefix.rstrip('_-.')
 
@@ -495,16 +495,16 @@ class SpectralReduction:
 
         # Define the stacked directory path
         stacked_dir = os.path.join(REDUCED_DIR, 'stacked')
-        
+
         # Create the 'stacked' directory if it doesn't exist
         os.makedirs(stacked_dir, exist_ok=True)
-        
+
         # Full path for the stacked spectrum file
         stacked_file = os.path.join(stacked_dir, stacked_filename)
-        
+
         # Initialize a list to hold the spectrum data
         stacked_spectra = []
-        
+
         # Read and collect data from each selected file
         for file in files_to_stack:
             try:
@@ -613,7 +613,7 @@ class PeakAssignmentWindow(tk.Toplevel):
         self.ax.set_title('ThAr Spectrum with Detected Peaks')
         self.ax.set_xlabel('Pixel')
         self.ax.set_ylabel('Intensity')
-        self.ax.legend()
+        self.ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
 
         # Embed the plot in Tkinter
         self.canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(self.fig, master=top_frame)
@@ -776,7 +776,7 @@ class PeakAssignmentWindow(tk.Toplevel):
         for handle, label in zip(handles, labels):
             if label not in unique and label != '_nolegend_':
                 unique[label] = handle
-        self.ax.legend(unique.values(), unique.keys(), loc='best')
+        self.ax.legend(unique.values(), unique.keys(), loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
         
         # Redraw the canvas
         self.canvas.draw()
@@ -1003,7 +1003,7 @@ class ReductionGUI:
         ax.set_title('Detected Gaussian Peaks')
         ax.set_xlabel('Pixel')
         ax.set_ylabel('Intensity')
-        ax.legend()
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
 
         # Embed the plot in the Tkinter window
         canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(fig, master=peaks_window)
@@ -1107,7 +1107,10 @@ class ReductionGUI:
         ax.set_title('Final Stacked Spectrum')
         ax.set_xlabel(x_label)
         ax.set_ylabel('Intensity')
-        ax.legend()
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot to make room for the legend
+        fig.subplots_adjust(right=0.75)
 
         # Embed the plot in the Tkinter window
         canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(fig, master=stacked_window)
@@ -1127,7 +1130,7 @@ class ReductionGUI:
         screen_height = plot_window.winfo_screenheight()
         # Set window size to 80% of screen dimensions
         window_width = int(screen_width * 0.8)
-        window_height = int(screen_height * 0.8)
+        window_height = int(screen_height * 1)
         plot_window.geometry(f"{window_width}x{window_height}")
 
         notebook = ttk.Notebook(plot_window)
@@ -1161,7 +1164,7 @@ class ReductionGUI:
         from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
         from matplotlib.figure import Figure
 
-        fig = Figure(figsize=(8, 6), dpi=100)
+        fig = Figure(figsize=(10, 6), dpi=100)  # Increased width to accommodate legend
         ax = fig.add_subplot(111)
         for x, data, label in self.reduction.bias_data_list:
             ax.plot(x, data, label=label)
@@ -1169,7 +1172,10 @@ class ReductionGUI:
         ax.set_title('Bias Frames and Master Bias')
         ax.set_xlabel('Pixel')
         ax.set_ylabel('Intensity')
-        ax.legend(fontsize='small', loc='upper right')
+        ax.legend(fontsize='small', loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot to make room for the legend
+        fig.subplots_adjust(right=0.75)
 
         canvas = FigureCanvasTkAgg(fig, master=parent)
         canvas.draw()
@@ -1181,7 +1187,7 @@ class ReductionGUI:
         from matplotlib.figure import Figure
 
         # Create three subplots
-        fig = Figure(figsize=(10, 12), dpi=100)
+        fig = Figure(figsize=(12, 16), dpi=100)  # Increased width
         axs = fig.subplots(3, 1)
 
         # Plot normalized flats
@@ -1191,7 +1197,10 @@ class ReductionGUI:
         ax.set_title('Normalized Flat Frames')
         ax.set_xlabel('Pixel')
         ax.set_ylabel('Normalized Intensity')
-        ax.legend(fontsize='small', loc='upper right')
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
 
         # Plot combined flat and Chebyshev fit
         x = np.arange(len(self.reduction.combined_flat))
@@ -1201,7 +1210,10 @@ class ReductionGUI:
         ax.set_title('Combined Flat and Chebyshev Fit')
         ax.set_xlabel('Pixel')
         ax.set_ylabel('Normalized Intensity')
-        ax.legend()
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
 
         # Plot master flat
         ax = axs[2]
@@ -1209,7 +1221,10 @@ class ReductionGUI:
         ax.set_title('Master Flat')
         ax.set_xlabel('Pixel')
         ax.set_ylabel('Normalized Intensity')
-        ax.legend()
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
 
         fig.tight_layout()
 
@@ -1222,7 +1237,7 @@ class ReductionGUI:
         from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
         from matplotlib.figure import Figure
 
-        fig = Figure(figsize=(10, 16), dpi=100)  # Increase figure size to fit residuals plot
+        fig = Figure(figsize=(12, 20), dpi=100)  # Increased width to accommodate legends
         axs = fig.subplots(3, 1)  # Using 3 subplots: ThAr spectrum, wavelength calibration, and residuals scatter
 
         # Plot ThAr spectrum with identified peaks
@@ -1230,14 +1245,17 @@ class ReductionGUI:
         xaxis = np.arange(len(self.reduction.thar_data))
         data = self.reduction.thar_data
         ax.plot(xaxis, data, label='ThAr Spectrum')
-        
+
         # Mark the peaks
         peaks = self.reduction.calibration_peaks
         ax.plot(peaks, data[peaks], 'ro', label='Peaks')
         ax.set_title('ThAr Spectrum with Identified Peaks')
         ax.set_xlabel('Pixel')
         ax.set_ylabel('Intensity')
-        ax.legend()
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
 
         # Plot wavelength calibration
         ax = axs[1]
@@ -1246,9 +1264,12 @@ class ReductionGUI:
             ax.set_title('Wavelength Calibration')
             ax.set_xlabel('Pixel')
             ax.set_ylabel('Wavelength (Angstrom)')
-            ax.legend()
+            ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
         else:
             ax.text(0.5, 0.5, 'No Wavelength Calibration Available', ha='center', va='center')
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
 
         # Plot residuals (use the ones calculated during calibration)
         ax = axs[2]
@@ -1259,7 +1280,7 @@ class ReductionGUI:
             ax.set_xlabel('Wavelength (Angstrom)')
             ax.set_ylabel('Residual (Angstrom)')
             ax.grid()
-            ax.legend()
+            ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
 
             # Optionally print summary of residuals again if needed
             print('==============================')
@@ -1272,6 +1293,9 @@ class ReductionGUI:
             print('==============================')
         else:
             ax.text(0.5, 0.5, 'No Residuals Available', ha='center', va='center')
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
 
         fig.tight_layout()
 
@@ -1298,6 +1322,213 @@ class ReductionGUI:
         all_pixel_wavelength_pairs = peak_window.prefilled_pairs + peak_window.assigned_pairs
 
         return all_pixel_wavelength_pairs
+
+    def display_plots(self):
+        """Displays the plots of biases, master bias, flats, master flat, and calibration steps."""
+        self.update_status("Generating plots...")
+
+        # Create a new window for plots
+        plot_window = tk.Toplevel(self.root)
+        plot_window.title("Reduction and Calibration Plots")
+
+        # Get screen dimensions
+        screen_width = plot_window.winfo_screenwidth()
+        screen_height = plot_window.winfo_screenheight()
+        # Set window size to 80% of screen dimensions
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 1)
+        plot_window.geometry(f"{window_width}x{window_height}")
+
+        notebook = ttk.Notebook(plot_window)
+        notebook.pack(fill='both', expand=True)
+
+        # Bias Plot Tab
+        bias_frame = ttk.Frame(notebook)
+        notebook.add(bias_frame, text='Bias Frames')
+
+        # Flat Plot Tab
+        flat_frame = ttk.Frame(notebook)
+        notebook.add(flat_frame, text='Flat Frames')
+
+        # Calibration Plot Tab
+        calib_frame = ttk.Frame(notebook)
+        notebook.add(calib_frame, text='Calibration')
+
+        # Master Bias Plot
+        self.plot_biases(bias_frame)
+
+        # Master Flat Plot
+        self.plot_flats(flat_frame)
+
+        # Calibration Plots
+        self.plot_calibration(calib_frame)
+
+        self.update_status("Plots generated.")
+
+    def plot_biases(self, parent):
+        """Plots all bias frames and the master bias."""
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        from matplotlib.figure import Figure
+
+        fig = Figure(figsize=(12, 16), dpi=100)  # Increased width to accommodate legend
+        ax = fig.add_subplot(111)
+        for x, data, label in self.reduction.bias_data_list:
+            ax.plot(x, data, label=label)
+        ax.plot(x, self.reduction.master_bias, label='Master Bias', linewidth=2, color='black')
+        ax.set_title('Bias Frames and Master Bias')
+        ax.set_xlabel('Pixel')
+        ax.set_ylabel('Intensity')
+        ax.legend(fontsize='small', loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot to make room for the legend
+        fig.subplots_adjust(right=0.75)
+
+        canvas = FigureCanvasTkAgg(fig, master=parent)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill='both', expand=True)
+
+    def plot_flats(self, parent):
+        """Plots all flat frames, combined flat, Chebyshev fit, and master flat."""
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        from matplotlib.figure import Figure
+
+        # Create three subplots
+        fig = Figure(figsize=(12, 16), dpi=100)  # Increased width
+        axs = fig.subplots(3, 1)
+
+        # Plot normalized flats
+        ax = axs[0]
+        for x, data, label in self.reduction.flat_data_list:
+            ax.plot(x, data, label=label)
+        ax.set_title('Normalized Flat Frames')
+        ax.set_xlabel('Pixel')
+        ax.set_ylabel('Normalized Intensity')
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
+
+        # Plot combined flat and Chebyshev fit
+        x = np.arange(len(self.reduction.combined_flat))
+        ax = axs[1]
+        ax.plot(x, self.reduction.combined_flat, label='Combined Flat')
+        ax.plot(x, self.reduction.y_fit, label='Chebyshev Fit', linestyle='--')
+        ax.set_title('Combined Flat and Chebyshev Fit')
+        ax.set_xlabel('Pixel')
+        ax.set_ylabel('Normalized Intensity')
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
+
+        # Plot master flat
+        ax = axs[2]
+        ax.plot(x, self.reduction.master_flat, label='Master Flat', color='green')
+        ax.set_title('Master Flat')
+        ax.set_xlabel('Pixel')
+        ax.set_ylabel('Normalized Intensity')
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
+
+        fig.tight_layout()
+
+        canvas = FigureCanvasTkAgg(fig, master=parent)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill='both', expand=True)
+
+    def plot_calibration(self, parent):
+        """Plots the calibration steps including residuals plot."""
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        from matplotlib.figure import Figure
+
+        fig = Figure(figsize=(12, 16), dpi=100)  # Increased width to accommodate legends
+        axs = fig.subplots(3, 1)  # Using 3 subplots: ThAr spectrum, wavelength calibration, and residuals scatter
+
+        # Plot ThAr spectrum with identified peaks
+        ax = axs[0]
+        xaxis = np.arange(len(self.reduction.thar_data))
+        data = self.reduction.thar_data
+        ax.plot(xaxis, data, label='ThAr Spectrum')
+
+        # Mark the peaks
+        peaks = self.reduction.calibration_peaks
+        ax.plot(peaks, data[peaks], 'ro', label='Peaks')
+        ax.set_title('ThAr Spectrum with Identified Peaks')
+        ax.set_xlabel('Pixel')
+        ax.set_ylabel('Intensity')
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
+
+        # Plot wavelength calibration
+        ax = axs[1]
+        if self.reduction.wavelengths is not None:
+            ax.plot(xaxis, self.reduction.wavelengths, label='Wavelength Calibration')
+            ax.set_title('Wavelength Calibration')
+            ax.set_xlabel('Pixel')
+            ax.set_ylabel('Wavelength (Angstrom)')
+            ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+        else:
+            ax.text(0.5, 0.5, 'No Wavelength Calibration Available', ha='center', va='center')
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
+
+        # Plot residuals (use the ones calculated during calibration)
+        ax = axs[2]
+        if self.reduction.calibration_residuals is not None:
+            # Use the saved residuals from the calibration process
+            ax.scatter(self.reduction.atlas_wavelengths, self.reduction.calibration_residuals, label='Residuals (Final Fit)', color='purple')
+            ax.set_title('Residuals of Wavelength Calibration')
+            ax.set_xlabel('Wavelength (Angstrom)')
+            ax.set_ylabel('Residual (Angstrom)')
+            ax.grid()
+            ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  # Modified line
+
+            # Optionally print summary of residuals again if needed
+            print('==============================')
+            print('Final Wavelength Calibration Residuals')
+            print(f"NLINES = {len(self.reduction.calibration_residuals)}")
+            print(f"DEGREE = {len(self.reduction.calibration_coeffs)}")
+            print(f"RESIDUALS AVG = {np.average(self.reduction.calibration_residuals)}")
+            print(f"RESIDUALS RMS = {np.std(self.reduction.calibration_residuals)}")
+            print(f"RESIDUALS RMS (in km/s) = {np.std(self.reduction.calibration_residuals) / np.average(self.reduction.atlas_wavelengths) * 3e5} km/s")
+            print('==============================')
+        else:
+            ax.text(0.5, 0.5, 'No Residuals Available', ha='center', va='center')
+
+        # Adjust the subplot
+        fig.subplots_adjust(right=0.75)
+
+        fig.tight_layout()
+
+        canvas = FigureCanvasTkAgg(fig, master=parent)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill='both', expand=True)
+
+    def launch_peak_assignment(self, xaxis, data, allcens, prefilled_pairs=None):
+        """Launches the Peak Assignment window and returns combined prefilled and assigned pixel-wavelength pairs."""
+        # Create the PeakAssignmentWindow and pass self as gui
+        peak_window = PeakAssignmentWindow(
+            self.root,
+            xaxis,
+            data,
+            allcens,
+            prefilled_pairs=prefilled_pairs,
+            gui=self  # Pass reference to main GUI for status updates
+        )
+
+        # Wait for the window to be closed
+        self.root.wait_window(peak_window)
+
+        # Combine prefilled and assigned pairs
+        all_pixel_wavelength_pairs = peak_window.prefilled_pairs + peak_window.assigned_pairs
+
+        return all_pixel_wavelength_pairs
+
 
     def display_plots(self):
         """Displays the plots of biases, master bias, flats, master flat, and calibration steps."""
