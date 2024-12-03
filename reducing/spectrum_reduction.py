@@ -571,7 +571,7 @@ class PeakAssignmentWindow(tk.Toplevel):
         screen_height = self.winfo_screenheight()
         # Set window size to 80% of screen dimensions
         window_width = int(screen_width * 0.7)
-        window_height = int(screen_height * 0.9)
+        window_height = int(screen_height * 1)
         self.geometry(f"{window_width}x{window_height}")
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -585,7 +585,7 @@ class PeakAssignmentWindow(tk.Toplevel):
         self.prefilled_pairs = prefilled_pairs.copy() if prefilled_pairs else []
 
         # Create matplotlib figure
-        self.fig = plt.Figure(figsize=(10, 5), dpi=100)
+        self.fig = plt.Figure(figsize=(10, 4), dpi=100)
         self.ax = self.fig.add_subplot(111)
         self.ax.plot(self.xaxis, self.data, label='ThAr Spectrum')
         self.ax.plot(self.allcens, self.data[self.allcens.astype(int)], 'ro', label='Detected Peaks')

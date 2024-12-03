@@ -1,29 +1,35 @@
-Peak Detection Summary
-======================
+Peak Detection and Gaussian Fit Summary
+=======================================
 
 File: NGC_1275_Mon Dec  2 2024_23_stacked.fits
 Number of Peaks Detected: 0
-Peak Wavelengths (Å):
+Peak Details:
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success
 
 File: NGC_40_center_Mon Dec  2 2024_2_stacked.fits
 Number of Peaks Detected: 3
-Peak Wavelengths (Å):
-  6547.29
-  6562.06
-  6583.08
+Peak Details:
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success
+         973 |       6547.55 |   7112.93 |      1.25 | Yes
+        1006 |       6562.28 |  21520.24 |      1.05 | Yes
+        1053 |       6582.93 |  18491.56 |      1.03 | Yes
 
 File: NGC_40_edge_Mon Dec  2 2024_22_stacked.fits
 Number of Peaks Detected: 3
-Peak Wavelengths (Å):
-  6547.74
-  6562.06
-  6583.08
+Peak Details:
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success
+         974 |       6547.54 |  13461.74 |      0.61 | Yes
+        1006 |       6562.27 |  40659.32 |      0.62 | Yes
+        1053 |       6582.92 |  40483.53 |      0.59 | Yes
 
 File: T_TAU_Mon Dec  2 2024_21_stacked.fits
-Number of Peaks Detected: 4
-Peak Wavelengths (Å):
-  6300.76
-  6562.50
-  6583.97
-  6731.55
+Number of Peaks Detected: 6
+Peak Details:
+  Peak Index | Wavelength (Å) | Amplitude | Sigma (Å) | Fit Success
+         422 |       6300.75 |   6754.42 |      1.93 | Yes
+         564 |       6364.38 |   4414.66 |      3.21 | Yes
+        1007 |       6563.26 |  37670.18 |      1.74 | Yes
+        1055 |       6583.85 |   4953.22 |      3.55 | Yes
+        1353 |       6716.99 |   4479.38 |      3.26 | Yes
+        1385 |       6731.43 |   5374.95 |      2.49 | Yes
 
