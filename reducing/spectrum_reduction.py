@@ -12,6 +12,8 @@ the reduced spectra into a new directory. It provides an enhanced GUI for monito
 the process and inspecting data, allows interactive peak inspection and wavelength
 assignment, and generates high-resolution debugging images.
 
+Additionally, it allows stacking multiple reduced spectra using a selected stacking method.
+
 Usage:
     python spectral_reduction.py
 
@@ -46,7 +48,6 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinter.simpledialog import askstring
-# Identify peaks in the ThAr spectrum
 from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit
@@ -183,6 +184,7 @@ class SpectralReduction:
         self.atlas_wavelengths = None
         self.calibration_residuals = None
         self.calibration_peaks = None
+        self.stacked_spectrum = None  # Stores the final stacked spectrum
 
     def create_master_bias(self):
         """Creates a master bias frame."""
@@ -214,7 +216,6 @@ class SpectralReduction:
             return None
 
         # Optionally remove bad flats based on visual inspection
-        # For example, if the first 3 flats are bad:
         bad_flat_indices = []  # Adjust based on your data
         flat_files = remove_bad_flats(flat_files, bad_flat_indices)
 
@@ -281,7 +282,6 @@ class SpectralReduction:
         self.allcens = allcens
 
         # Define prefilled pixel_lambda based on specific allcens indices
-        # These indices correspond to your original hardcoded mappings
         prefilled_indices = [5, 13, 14, 21, 22, 26]
         known_wavelengths = [6182.62, 6457.28, 6531.34, 6677.28, 6752.83, 6911.23]
         pixel_lambda_prefilled = []
@@ -294,7 +294,8 @@ class SpectralReduction:
 
         # Launch Peak Assignment GUI with prefilled data
         self.gui.update_status("Launching peak assignment window for user input...")
-        pixel_wavelength_pairs = self.gui.launch_peak_assignment(xaxis, data, allcens, prefilled_pairs=pixel_lambda_prefilled)
+        pixel_wavelength_pairs = self.gui.launch_peak_assignment(
+            xaxis, data, allcens, prefilled_pairs=pixel_lambda_prefilled)
 
         if len(pixel_wavelength_pairs) < 2:
             self.gui.update_status("Insufficient peak assignments for calibration.")
@@ -305,7 +306,8 @@ class SpectralReduction:
 
         # Fit a Chebyshev polynomial to the user-provided pixel-wavelength pairs
         degree = 2  # You can adjust the degree based on requirements
-        coeffs_initial, y_fit_initial = chebyshev.chebfit(pixel_wavelength_pairs[:, 0], pixel_wavelength_pairs[:, 1], degree, full=True)[:2]
+        coeffs_initial, y_fit_initial = chebyshev.chebfit(
+            pixel_wavelength_pairs[:, 0], pixel_wavelength_pairs[:, 1], degree, full=True)[:2]
 
         # Evaluate the Chebyshev polynomial to predict wavelengths across the x-axis
         y_fit = chebyshev.chebval(xaxis, coeffs_initial)
@@ -321,7 +323,8 @@ class SpectralReduction:
         print('NLINES=', len(pixel_wavelength_pairs))
         print('RESIDUALS AVG', np.average(residuals_initial), 'Angstrom')
         print('RESIDUALS RMS', np.std(residuals_initial), 'Angstrom')
-        print('RESIDUALS RMS (in km/s)', np.std(residuals_initial) / np.average(atlas_wl_initial) * 3e5, 'km/s')
+        print('RESIDUALS RMS (in km/s)', np.std(residuals_initial) /
+              np.average(atlas_wl_initial) * 3e5, 'km/s')
         print('==============================')
 
         # Load the NIST line list
@@ -379,7 +382,8 @@ class SpectralReduction:
 
         # Perform second iteration of Chebyshev polynomial fitting
         degree = 2
-        coeffs_final, y_fit_final = chebyshev.chebfit(combined_pixel_lambda[:, 0], combined_pixel_lambda[:, 1], degree, full=True)[:2]
+        coeffs_final, y_fit_final = chebyshev.chebfit(
+            combined_pixel_lambda[:, 0], combined_pixel_lambda[:, 1], degree, full=True)[:2]
         print(f"Chebyshev coefficients after second iteration: {coeffs_final}")
 
         # Final residuals for the second iteration
@@ -430,7 +434,8 @@ class SpectralReduction:
             if self.wavelengths is not None:
                 # Add wavelength calibration to the FITS header
                 header['CRVAL1'] = self.wavelengths[0]  # Starting wavelength (first pixel)
-                header['CDELT1'] = (self.wavelengths[-1] - self.wavelengths[0]) / (len(self.wavelengths) - 1)  # Wavelength increment
+                header['CDELT1'] = (self.wavelengths[-1] - self.wavelengths[0]) / (
+                    len(self.wavelengths) - 1)  # Wavelength increment
                 header['CTYPE1'] = 'Wavelength'  # Specify the type of axis
 
                 # Add the coefficients of the polynomial fit used for the calibration
@@ -444,6 +449,113 @@ class SpectralReduction:
             write_spectrum(reduced_file, data, header)
 
             self.gui.update_status(f"Reduced spectrum saved to {reduced_file}")
+
+    def stack_reduced_spectra(self, files_to_stack, stacking_method):
+        """
+        Stacks selected reduced spectra using the specified stacking method.
+        
+        The stacked spectrum is saved in the 'Reduced/stacked' directory.
+        The filename is based on the common prefix of the selected files.
+        If no common prefix exists, a warning is displayed and a default name is used.
+        
+        Parameters:
+            files_to_stack (list): List of file paths to stack.
+            stacking_method (str): Method to stack spectra ('Median', 'Average', 'Weighted Average').
+        
+        Returns:
+            np.ndarray: The stacked spectrum data, or None if stacking fails.
+        """
+        self.gui.update_status("Stacking reduced spectra...")
+        
+        if not files_to_stack:
+            self.gui.update_status("No reduced spectra selected for stacking.")
+            return None
+
+        # Extract base filenames from the selected files
+        base_names = [os.path.basename(f) for f in files_to_stack]
+        
+        # Find the common prefix among the filenames
+        common_prefix = os.path.commonprefix(base_names)
+        
+        # Clean the common prefix by removing trailing underscores, hyphens, or dots
+        common_prefix = common_prefix.rstrip('_-.')
+
+        # Determine if the common prefix is significant (e.g., at least 3 characters)
+        if len(common_prefix) >= 3:
+            stacked_filename = f"{common_prefix}_stacked.fits"
+        else:
+            # Warn the user that the selected files may be different
+            messagebox.showwarning(
+                "No Common Prefix Detected",
+                "The selected files do not share a common prefix. "
+                "You may be stacking different spectra, which could lead to inconsistent results."
+            )
+            stacked_filename = "stacked_spectrum.fits"
+
+        # Define the stacked directory path
+        stacked_dir = os.path.join(REDUCED_DIR, 'stacked')
+        
+        # Create the 'stacked' directory if it doesn't exist
+        os.makedirs(stacked_dir, exist_ok=True)
+        
+        # Full path for the stacked spectrum file
+        stacked_file = os.path.join(stacked_dir, stacked_filename)
+        
+        # Initialize a list to hold the spectrum data
+        stacked_spectra = []
+        
+        # Read and collect data from each selected file
+        for file in files_to_stack:
+            try:
+                _, data = read_spectrum(file)
+                stacked_spectra.append(data)
+            except Exception as e:
+                messagebox.showerror(
+                    "Error Reading File",
+                    f"An error occurred while reading {os.path.basename(file)}:\n{e}"
+                )
+                self.gui.update_status(f"Failed to read {os.path.basename(file)}. Skipping.")
+                continue
+
+        if not stacked_spectra:
+            self.gui.update_status("No valid spectra were loaded for stacking.")
+            return None
+
+        # Convert the list of spectra to a NumPy array for stacking
+        stacked_spectra = np.array(stacked_spectra)
+
+        # Perform stacking based on the selected method
+        if stacking_method == 'Median':
+            self.stacked_spectrum = np.median(stacked_spectra, axis=0)
+        elif stacking_method == 'Average':
+            self.stacked_spectrum = np.mean(stacked_spectra, axis=0)
+        elif stacking_method == 'Weighted Average':
+            # Implement actual weighting logic as needed
+            # Currently using equal weights for simplicity
+            weights = np.ones(stacked_spectra.shape[0])
+            self.stacked_spectrum = np.average(stacked_spectra, axis=0, weights=weights)
+        else:
+            self.gui.update_status("Invalid stacking method selected.")
+            messagebox.showerror(
+                "Invalid Stacking Method",
+                f"The stacking method '{stacking_method}' is not recognized. "
+                "Please choose 'Median', 'Average', or 'Weighted Average'."
+            )
+            return None
+
+        # Save the stacked spectrum to the designated file
+        try:
+            write_spectrum(stacked_file, self.stacked_spectrum)
+            self.gui.update_status(f"Stacked spectrum saved to {stacked_file}")
+        except Exception as e:
+            messagebox.showerror(
+                "Error Saving Stacked Spectrum",
+                f"An error occurred while saving the stacked spectrum:\n{e}"
+            )
+            self.gui.update_status("Failed to save the stacked spectrum.")
+            return None
+
+        return self.stacked_spectrum
 
 # ======================================================================
 # Peak Assignment GUI Window
@@ -507,7 +619,7 @@ class PeakAssignmentWindow(tk.Toplevel):
 
         # Button to remove selected peak
         self.remove_button = ttk.Button(buttons_frame, text="Remove Selected Peak", command=self.remove_selected_peak, width=20)
-        self.remove_button.pack(side=tk.LEFT, padx=5, pady=5)  # Pack buttons side by side
+        self.remove_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Button to finish assignment
         self.finish_button = ttk.Button(buttons_frame, text="Done", command=self.finish_assignment, width=10)
@@ -516,8 +628,6 @@ class PeakAssignmentWindow(tk.Toplevel):
         # Adding padding inside the buttons to make them appear bigger
         self.remove_button.config(padding=(10, 10))
         self.finish_button.config(padding=(10, 10))
-
-        # Removed pack_propagate to allow frame to resize based on its contents
 
     def on_click(self, event):
         """Handle click events on the plot to select peaks."""
@@ -528,7 +638,7 @@ class PeakAssignmentWindow(tk.Toplevel):
         idx = (np.abs(self.allcens - x_click)).argmin()
         selected_pixel = self.allcens[idx]
         if any(np.isclose(selected_pixel, pair[0], atol=1e-2) for pair in self.pixel_wavelength_pairs):
-            messagebox.showinfo("Peak Already Assigned", f"Peak at pixel {int(selected_pixel)} Å is already assigned.")
+            messagebox.showinfo("Peak Already Assigned", f"Peak at pixel {int(selected_pixel)} is already assigned.")
             return
         # Prompt user to enter the known wavelength
         wavelength = askstring("Input Wavelength", f"Enter known wavelength for peak at pixel {int(selected_pixel)}:")
@@ -625,10 +735,13 @@ class ReductionGUI:
         self.inspect_button = ttk.Button(self.frame, text="Inspect Data", command=self.inspect_data)
         self.inspect_button.grid(row=1, column=1, pady=5, padx=5, sticky=tk.W)
 
-        # *** New Button: Show Gaussian Peaks ***
+        # New Button: Show Gaussian Peaks
         self.peaks_button = ttk.Button(self.frame, text="Show Gaussian Peaks", command=self.show_gaussian_peaks)
         self.peaks_button.grid(row=1, column=2, pady=5, padx=5, sticky=tk.W)
-        # *** End of New Button ***
+
+        # New Button: Stack Spectra
+        self.stack_button = ttk.Button(self.frame, text="Stack Spectra", command=self.stack_spectra)
+        self.stack_button.grid(row=2, column=0, pady=5, padx=5, sticky=tk.E)
 
         # Treeview for files
         self.tree = ttk.Treeview(self.frame, columns=('Type', 'File'), show='headings', height=10)
@@ -636,7 +749,7 @@ class ReductionGUI:
         self.tree.heading('File', text='File')
         self.tree.column('Type', width=100)
         self.tree.column('File', width=600)
-        self.tree.grid(row=2, column=0, columnspan=3, pady=10, sticky=(tk.W, tk.E))  # Updated columnspan to 3
+        self.tree.grid(row=3, column=0, columnspan=3, pady=10, sticky=(tk.W, tk.E))  # Updated columnspan to 3
 
         # Configure column weights
         self.root.columnconfigure(0, weight=1)
@@ -715,7 +828,6 @@ class ReductionGUI:
         else:
             messagebox.showinfo("No file selected", "Please select a file to inspect.")
 
-    # *** New Method: Show Gaussian Peaks ***
     def show_gaussian_peaks(self):
         """Opens a new window displaying the ThAr spectrum with detected Gaussian peaks annotated."""
         if self.reduction.thar_data is None or self.reduction.allcens is None:
@@ -753,7 +865,95 @@ class ReductionGUI:
         canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(fig, master=peaks_window)
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
-    # *** End of New Method ***
+
+    def stack_spectra(self):
+        """Handles the stacking process: selecting files, method, and saving the result."""
+        # Open file dialog to select reduced spectra
+        filetypes = [('FITS files', '*.fits'), ('All files', '*')]
+        files_to_stack = filedialog.askopenfilenames(
+            title='Select Reduced Spectra to Stack', initialdir=REDUCED_DIR, filetypes=filetypes)
+        if not files_to_stack:
+            messagebox.showinfo("No Files Selected", "Please select at least one reduced spectrum to stack.")
+            return
+
+        # Ask user to select stacking method
+        stacking_method = self.select_stacking_method()
+        if not stacking_method:
+            return
+
+        # Run stacking in a separate thread
+        threading.Thread(target=self.run_stacking, args=(files_to_stack, stacking_method)).start()
+
+    def select_stacking_method(self):
+        """Opens a dialog for the user to select the stacking method."""
+        method_window = tk.Toplevel(self.root)
+        method_window.title("Select Stacking Method")
+        method_window.geometry("300x150")
+        method_window.grab_set()  # Make this window modal
+
+        method_var = tk.StringVar(value='Median')
+
+        ttk.Label(method_window, text="Choose Stacking Method:").pack(pady=10)
+
+        methods = ['Median', 'Average', 'Weighted Average']
+        for method in methods:
+            ttk.Radiobutton(method_window, text=method, variable=method_var, value=method).pack(anchor=tk.W)
+
+        def confirm():
+            method_window.destroy()
+
+        ttk.Button(method_window, text="OK", command=confirm).pack(pady=10)
+
+        self.root.wait_window(method_window)
+
+        return method_var.get()
+
+    def run_stacking(self, files_to_stack, stacking_method):
+        self.update_status("Starting stacking process...")
+        self.reduction.stack_reduced_spectra(files_to_stack, stacking_method)
+        self.update_status("Stacking completed.")
+        # Display the stacked spectrum
+        self.display_stacked_spectrum()
+
+    def display_stacked_spectrum(self):
+        """Displays the stacked spectrum."""
+        if self.reduction.stacked_spectrum is None:
+            messagebox.showwarning("Stacking Failed", "No stacked spectrum to display.")
+            return
+
+        # Create a new window for the stacked spectrum plot
+        stacked_window = tk.Toplevel(self.root)
+        stacked_window.title("Stacked Spectrum")
+        stacked_window.geometry("800x600")
+
+        # Create a matplotlib figure
+        fig = plt.Figure(figsize=(8, 6), dpi=100)
+        ax = fig.add_subplot(111)
+
+        # Determine if wavelength calibration is available
+        if os.path.exists(CALIB_FILE):
+            wavelengths = np.loadtxt(CALIB_FILE)
+            if len(wavelengths) == len(self.reduction.stacked_spectrum):
+                x_axis = wavelengths
+                x_label = 'Wavelength (Angstrom)'
+            else:
+                x_axis = np.arange(len(self.reduction.stacked_spectrum))
+                x_label = 'Pixel'
+                messagebox.showwarning("Calibration Mismatch", "Wavelength calibration data does not match the stacked spectrum length.")
+        else:
+            x_axis = np.arange(len(self.reduction.stacked_spectrum))
+            x_label = 'Pixel'
+
+        ax.plot(x_axis, self.reduction.stacked_spectrum, label='Stacked Spectrum')
+        ax.set_title('Final Stacked Spectrum')
+        ax.set_xlabel(x_label)
+        ax.set_ylabel('Intensity')
+        ax.legend()
+
+        # Embed the plot in the Tkinter window
+        canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(fig, master=stacked_window)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill='both', expand=True)
 
     def launch_peak_assignment(self, xaxis, data, allcens, prefilled_pairs=None):
         """Launches the Peak Assignment window and returns pixel-wavelength pairs."""
