@@ -565,7 +565,15 @@ class PeakAssignmentWindow(tk.Toplevel):
     def __init__(self, master, xaxis, data, allcens, prefilled_pairs=None):
         super().__init__(master)
         self.title("Peak Assignment")
-        self.geometry("1200x10000")
+
+        # Get screen dimensions
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        # Set window size to 80% of screen dimensions
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.9)
+        self.geometry(f"{window_width}x{window_height}")
+
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.xaxis = xaxis
@@ -614,7 +622,6 @@ class PeakAssignmentWindow(tk.Toplevel):
 
         # Buttons Frame
         buttons_frame = ttk.Frame(self)
-        # Button at the top to ensure it's always visible
         buttons_frame.pack(side=tk.RIGHT, fill='x')
 
         # Button to remove selected peak
@@ -705,6 +712,14 @@ class ReductionGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Spectral Data Reduction and Calibration")
+
+        # Set window size to 80% of screen dimensions
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.8)
+        self.root.geometry(f"{window_width}x{window_height}")
+
         self.apply_styles()
         self.create_widgets()
         self.reduction = SpectralReduction(gui=self)
@@ -724,9 +739,17 @@ class ReductionGUI:
         self.frame = ttk.Frame(self.root)
         self.frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
+        # Configure grid weights for responsiveness
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        self.frame.columnconfigure(0, weight=1)
+        self.frame.columnconfigure(1, weight=1)
+        self.frame.columnconfigure(2, weight=1)  # Added weight for the third column
+        self.frame.rowconfigure(3, weight=1)  # Allow treeview to expand
+
         # Status Label
         self.status_label = ttk.Label(self.frame, text="Ready", anchor='center')
-        self.status_label.grid(row=0, column=0, columnspan=3, pady=5)  # Updated columnspan to 3
+        self.status_label.grid(row=0, column=0, columnspan=3, pady=5, sticky=(tk.W, tk.E))  # Updated columnspan to 3
 
         # Buttons
         self.start_button = ttk.Button(self.frame, text="Start Reduction", command=self.start_reduction)
@@ -747,16 +770,14 @@ class ReductionGUI:
         self.tree = ttk.Treeview(self.frame, columns=('Type', 'File'), show='headings', height=10)
         self.tree.heading('Type', text='Type')
         self.tree.heading('File', text='File')
-        self.tree.column('Type', width=100)
-        self.tree.column('File', width=600)
-        self.tree.grid(row=3, column=0, columnspan=3, pady=10, sticky=(tk.W, tk.E))  # Updated columnspan to 3
+        self.tree.column('Type', width=100, anchor='center')
+        self.tree.column('File', width=600, anchor='w')
+        self.tree.grid(row=3, column=0, columnspan=3, pady=10, sticky=(tk.W, tk.E, tk.N, tk.S))  # Updated columnspan to 3
 
-        # Configure column weights
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
-        self.frame.columnconfigure(0, weight=1)
-        self.frame.columnconfigure(1, weight=1)
-        self.frame.columnconfigure(2, weight=1)  # Added weight for the third column
+        # Add scrollbar to the treeview
+        scrollbar = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscroll=scrollbar.set)
+        scrollbar.grid(row=3, column=3, sticky=(tk.N, tk.S))
 
     def update_status(self, message):
         self.status_label.config(text=message)
@@ -819,12 +840,30 @@ class ReductionGUI:
                 x_axis = x
                 x_label = 'Pixel'
 
-            plt.figure(figsize=(10, 6))
-            plt.plot(x_axis, data)
-            plt.title(f"Inspecting {os.path.basename(filename)}")
-            plt.xlabel(x_label)
-            plt.ylabel('Intensity')
-            plt.show()
+            # Create a new window for the plot
+            inspect_window = tk.Toplevel(self.root)
+            inspect_window.title(f"Inspecting {os.path.basename(filename)}")
+
+            # Get screen dimensions
+            screen_width = inspect_window.winfo_screenwidth()
+            screen_height = inspect_window.winfo_screenheight()
+            # Set window size to 80% of screen dimensions
+            window_width = int(screen_width * 0.8)
+            window_height = int(screen_height * 0.8)
+            inspect_window.geometry(f"{window_width}x{window_height}")
+
+            # Create a matplotlib figure
+            fig = plt.Figure(figsize=(10, 6), dpi=100)
+            ax = fig.add_subplot(111)
+            ax.plot(x_axis, data)
+            ax.set_title(f"Inspecting {os.path.basename(filename)}")
+            ax.set_xlabel(x_label)
+            ax.set_ylabel('Intensity')
+
+            # Embed the plot in the Tkinter window
+            canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(fig, master=inspect_window)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill='both', expand=True)
         else:
             messagebox.showinfo("No file selected", "Please select a file to inspect.")
 
@@ -837,7 +876,14 @@ class ReductionGUI:
         # Create a new window
         peaks_window = tk.Toplevel(self.root)
         peaks_window.title("Detected Gaussian Peaks")
-        peaks_window.geometry("800x600")
+
+        # Get screen dimensions
+        screen_width = peaks_window.winfo_screenwidth()
+        screen_height = peaks_window.winfo_screenheight()
+        # Set window size to 80% of screen dimensions
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.8)
+        peaks_window.geometry(f"{window_width}x{window_height}")
 
         # Create a matplotlib figure
         fig = plt.Figure(figsize=(8, 6), dpi=100)
@@ -888,7 +934,15 @@ class ReductionGUI:
         """Opens a dialog for the user to select the stacking method."""
         method_window = tk.Toplevel(self.root)
         method_window.title("Select Stacking Method")
-        method_window.geometry("300x150")
+
+        # Get screen dimensions
+        screen_width = method_window.winfo_screenwidth()
+        screen_height = method_window.winfo_screenheight()
+        # Set window size to 40% of screen dimensions
+        window_width = int(screen_width * 0.4)
+        window_height = int(screen_height * 0.3)
+        method_window.geometry(f"{window_width}x{window_height}")
+
         method_window.grab_set()  # Make this window modal
 
         method_var = tk.StringVar(value='Median')
@@ -924,7 +978,14 @@ class ReductionGUI:
         # Create a new window for the stacked spectrum plot
         stacked_window = tk.Toplevel(self.root)
         stacked_window.title("Stacked Spectrum")
-        stacked_window.geometry("800x600")
+
+        # Get screen dimensions
+        screen_width = stacked_window.winfo_screenwidth()
+        screen_height = stacked_window.winfo_screenheight()
+        # Set window size to 80% of screen dimensions
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.8)
+        stacked_window.geometry(f"{window_width}x{window_height}")
 
         # Create a matplotlib figure
         fig = plt.Figure(figsize=(8, 6), dpi=100)
@@ -955,17 +1016,6 @@ class ReductionGUI:
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
 
-    def launch_peak_assignment(self, xaxis, data, allcens, prefilled_pairs=None):
-        """Launches the Peak Assignment window and returns pixel-wavelength pairs."""
-        # Create the PeakAssignmentWindow
-        peak_window = PeakAssignmentWindow(self.root, xaxis, data, allcens, prefilled_pairs=prefilled_pairs)
-
-        # Wait for the window to be closed
-        self.root.wait_window(peak_window)
-
-        # Retrieve the pixel-wavelength pairs
-        return peak_window.pixel_wavelength_pairs
-
     def display_plots(self):
         """Displays the plots of biases, master bias, flats, master flat, and calibration steps."""
         self.update_status("Generating plots...")
@@ -973,7 +1023,15 @@ class ReductionGUI:
         # Create a new window for plots
         plot_window = tk.Toplevel(self.root)
         plot_window.title("Reduction and Calibration Plots")
-        plot_window.geometry("1200x800")
+
+        # Get screen dimensions
+        screen_width = plot_window.winfo_screenwidth()
+        screen_height = plot_window.winfo_screenheight()
+        # Set window size to 80% of screen dimensions
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.8)
+        plot_window.geometry(f"{window_width}x{window_height}")
+
         notebook = ttk.Notebook(plot_window)
         notebook.pack(fill='both', expand=True)
 
@@ -1122,6 +1180,59 @@ class ReductionGUI:
         canvas = FigureCanvasTkAgg(fig, master=parent)
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
+
+    def launch_peak_assignment(self, xaxis, data, allcens, prefilled_pairs=None):
+        """Launches the Peak Assignment window and returns pixel-wavelength pairs."""
+        # Create the PeakAssignmentWindow
+        peak_window = PeakAssignmentWindow(self.root, xaxis, data, allcens, prefilled_pairs=prefilled_pairs)
+
+        # Wait for the window to be closed
+        self.root.wait_window(peak_window)
+
+        # Retrieve the pixel-wavelength pairs
+        return peak_window.pixel_wavelength_pairs
+
+    def display_plots(self):
+        """Displays the plots of biases, master bias, flats, master flat, and calibration steps."""
+        self.update_status("Generating plots...")
+
+        # Create a new window for plots
+        plot_window = tk.Toplevel(self.root)
+        plot_window.title("Reduction and Calibration Plots")
+
+        # Get screen dimensions
+        screen_width = plot_window.winfo_screenwidth()
+        screen_height = plot_window.winfo_screenheight()
+        # Set window size to 80% of screen dimensions
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.8)
+        plot_window.geometry(f"{window_width}x{window_height}")
+
+        notebook = ttk.Notebook(plot_window)
+        notebook.pack(fill='both', expand=True)
+
+        # Bias Plot Tab
+        bias_frame = ttk.Frame(notebook)
+        notebook.add(bias_frame, text='Bias Frames')
+
+        # Flat Plot Tab
+        flat_frame = ttk.Frame(notebook)
+        notebook.add(flat_frame, text='Flat Frames')
+
+        # Calibration Plot Tab
+        calib_frame = ttk.Frame(notebook)
+        notebook.add(calib_frame, text='Calibration')
+
+        # Master Bias Plot
+        self.plot_biases(bias_frame)
+
+        # Master Flat Plot
+        self.plot_flats(flat_frame)
+
+        # Calibration Plots
+        self.plot_calibration(calib_frame)
+
+        self.update_status("Plots generated.")
 
 # ======================================================================
 # Main Execution

@@ -1,0 +1,29 @@
+Peak Detection Summary
+======================
+
+File: NGC_1275_Mon Dec  2 2024_23_stacked.fits
+Number of Peaks Detected: 0
+Peak Wavelengths (Å):
+
+File: NGC_40_center_Mon Dec  2 2024_2_stacked.fits
+Number of Peaks Detected: 3
+Peak Wavelengths (Å):
+  6547.29
+  6562.06
+  6583.08
+
+File: NGC_40_edge_Mon Dec  2 2024_22_stacked.fits
+Number of Peaks Detected: 3
+Peak Wavelengths (Å):
+  6547.74
+  6562.06
+  6583.08
+
+File: T_TAU_Mon Dec  2 2024_21_stacked.fits
+Number of Peaks Detected: 4
+Peak Wavelengths (Å):
+  6300.76
+  6562.50
+  6583.97
+  6731.55
+
