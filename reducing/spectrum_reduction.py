@@ -46,7 +46,8 @@ import re
 import warnings
 import threading
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
+import copy
 from tkinter.simpledialog import askstring
 from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter
@@ -562,16 +563,22 @@ class SpectralReduction:
 # ======================================================================
 
 class PeakAssignmentWindow(tk.Toplevel):
-    def __init__(self, master, xaxis, data, allcens, prefilled_pairs=None):
+    def __init__(self, master, xaxis, data, allcens, prefilled_pairs=None, gui=None):
         super().__init__(master)
         self.title("Peak Assignment")
+        
+        # Reference to the main GUI for status updates
+        self.gui = gui
+        
+        # Make the window resizable
+        self.resizable(width=True, height=True)
 
         # Get screen dimensions
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-        # Set window size to 80% of screen dimensions
-        window_width = int(screen_width * 0.7)
-        window_height = int(screen_height * 1)
+        # Set window size to 60% width and 80% height
+        window_width = int(screen_width * 0.6)
+        window_height = int(screen_height * 0.8)
         self.geometry(f"{window_width}x{window_height}")
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -580,9 +587,23 @@ class PeakAssignmentWindow(tk.Toplevel):
         self.data = data
         self.allcens = allcens
 
-        # Initialize lists to store pixel-wavelength pairs
-        self.pixel_wavelength_pairs = [] if prefilled_pairs is None else prefilled_pairs.copy()
-        self.prefilled_pairs = prefilled_pairs.copy() if prefilled_pairs else []
+        # Initialize separate lists for prefilled and assigned peaks
+        self.prefilled_pairs = copy.deepcopy(prefilled_pairs) if prefilled_pairs else []
+        self.assigned_pairs = []
+
+        # Lists to store Line2D objects for prefilled and assigned peaks
+        self.prefilled_peak_lines = []
+        self.assigned_peak_lines = []
+
+        # Create main frames
+        top_frame = ttk.Frame(self)
+        top_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        middle_frame = ttk.Frame(self)
+        middle_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=5)
+
+        bottom_frame = ttk.Frame(self)
+        bottom_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
 
         # Create matplotlib figure
         self.fig = plt.Figure(figsize=(10, 4), dpi=100)
@@ -595,46 +616,48 @@ class PeakAssignmentWindow(tk.Toplevel):
         self.ax.legend()
 
         # Embed the plot in Tkinter
-        self.canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(self.fig, master=self)
+        self.canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(self.fig, master=top_frame)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill='both', expand=True)
 
         # Instruction Label
-        instruction = ttk.Label(self, text="Select a peak by clicking on it, then enter the known wavelength.")
-        instruction.pack(pady=5)
+        instruction = ttk.Label(middle_frame, text="Select a peak by clicking on it, then enter the known wavelength.")
+        instruction.pack(anchor='w')
+
+        # Listbox to show assigned peaks with scrollbar
+        listbox_frame = ttk.Frame(middle_frame)
+        listbox_frame.pack(fill='both', expand=True, pady=5)
+
+        scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL)
+        self.assigned_listbox = tk.Listbox(listbox_frame, width=50, yscrollcommand=scrollbar.set, height=10)
+        scrollbar.config(command=self.assigned_listbox.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.assigned_listbox.pack(side=tk.LEFT, fill='both', expand=True)
+
+        # Prepopulate listbox with prefilled pairs
+        if self.prefilled_pairs:
+            for pair in self.prefilled_pairs:
+                pixel = pair[0]
+                wl = pair[1]
+                self.assigned_listbox.insert(tk.END, f"Prefilled - Pixel: {int(pixel)}, Wavelength: {wl} Å")
+                # Mark prefilled peaks with blue 'x'
+                line, = self.ax.plot(pixel, self.data[int(pixel)], 'bx', markersize=12, label='Prefilled Peak')
+                self.prefilled_peak_lines.append(line)
+            self.canvas.draw()
+
+        # Buttons
+        self.remove_button = ttk.Button(bottom_frame, text="Remove Selected Peak", command=self.remove_selected_peak)
+        self.remove_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.finish_button = ttk.Button(bottom_frame, text="Done", command=self.finish_assignment)
+        self.finish_button.pack(side=tk.RIGHT, padx=5, pady=5)
+
+        # Adding padding inside the buttons to make them appear bigger
+        self.remove_button.config(padding=(10, 5))
+        self.finish_button.config(padding=(10, 5))
 
         # Bind click event
         self.canvas.mpl_connect('button_press_event', self.on_click)
-
-        # Listbox to show assigned peaks
-        self.assigned_listbox = tk.Listbox(self, width=50)
-        self.assigned_listbox.pack(pady=10)
-
-        # Prepopulate listbox with prefilled pairs
-        if prefilled_pairs:
-            for pair in prefilled_pairs:
-                pixel = pair[0]
-                wl = pair[1]
-                self.assigned_listbox.insert(tk.END, f"Pixel: {int(pixel)}, Wavelength: {wl} Å")
-                # Mark prefilled peaks with blue 'x'
-                self.ax.plot(pixel, self.data[int(pixel)], 'bx', markersize=12, label='Prefilled Peak')
-            self.canvas.draw()
-
-        # Buttons Frame
-        buttons_frame = ttk.Frame(self)
-        buttons_frame.pack(side=tk.RIGHT, fill='x')
-
-        # Button to remove selected peak
-        self.remove_button = ttk.Button(buttons_frame, text="Remove Selected Peak", command=self.remove_selected_peak, width=20)
-        self.remove_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        # Button to finish assignment
-        self.finish_button = ttk.Button(buttons_frame, text="Done", command=self.finish_assignment, width=10)
-        self.finish_button.pack(side=tk.TOP, padx=5, pady=5)
-
-        # Adding padding inside the buttons to make them appear bigger
-        self.remove_button.config(padding=(10, 10))
-        self.finish_button.config(padding=(10, 10))
 
     def on_click(self, event):
         """Handle click events on the plot to select peaks."""
@@ -644,20 +667,30 @@ class PeakAssignmentWindow(tk.Toplevel):
         # Find the nearest peak to the click
         idx = (np.abs(self.allcens - x_click)).argmin()
         selected_pixel = self.allcens[idx]
-        if any(np.isclose(selected_pixel, pair[0], atol=1e-2) for pair in self.pixel_wavelength_pairs):
+        
+        # Check if the peak is already assigned or prefilled
+        already_assigned = any(np.isclose(selected_pixel, pair[0], atol=1e-2) for pair in self.assigned_pairs)
+        already_prefilled = any(np.isclose(selected_pixel, pair[0], atol=1e-2) for pair in self.prefilled_pairs)
+        
+        if already_assigned or already_prefilled:
             messagebox.showinfo("Peak Already Assigned", f"Peak at pixel {int(selected_pixel)} is already assigned.")
             return
+        
         # Prompt user to enter the known wavelength
-        wavelength = askstring("Input Wavelength", f"Enter known wavelength for peak at pixel {int(selected_pixel)}:")
+        wavelength = simpledialog.askstring("Input Wavelength", f"Enter known wavelength for peak at pixel {int(selected_pixel)}:")
         if wavelength is not None:
             try:
                 wavelength = float(wavelength)
-                self.pixel_wavelength_pairs.append([selected_pixel, wavelength])
+                self.assigned_pairs.append([selected_pixel, wavelength])
                 # Update the listbox
-                self.assigned_listbox.insert(tk.END, f"Pixel: {int(selected_pixel)}, Wavelength: {wavelength} Å")
+                self.assigned_listbox.insert(tk.END, f"Assigned - Pixel: {int(selected_pixel)}, Wavelength: {wavelength} Å")
                 # Mark the assigned peak with green 'x'
-                self.ax.plot(selected_pixel, self.data[int(selected_pixel)], 'gx', markersize=12, label='Assigned Peak')
+                line, = self.ax.plot(selected_pixel, self.data[int(selected_pixel)], 'gx', markersize=12, label='Assigned Peak')
+                self.assigned_peak_lines.append(line)
                 self.canvas.draw()
+                # Update status in the main GUI
+                if self.gui:
+                    self.gui.update_status(f"Assigned peak at pixel {int(selected_pixel)} with wavelength {wavelength} Å.")
             except ValueError:
                 messagebox.showerror("Invalid Input", "Please enter a valid numerical wavelength.")
 
@@ -671,35 +704,100 @@ class PeakAssignmentWindow(tk.Toplevel):
             # Remove from listbox
             peak_info = self.assigned_listbox.get(index)
             self.assigned_listbox.delete(index)
-            # Remove from internal list
-            try:
-                pixel = float(re.findall(r'Pixel: (\d+)', peak_info)[0])
-                wavelength = float(re.findall(r'Wavelength: ([\d.]+)', peak_info)[0])
-                self.pixel_wavelength_pairs = [pair for pair in self.pixel_wavelength_pairs if not (np.isclose(pair[0], pixel, atol=1e-2) and np.isclose(pair[1], wavelength, atol=1e-2))]
-            except (IndexError, ValueError):
+            
+            # Determine if the peak is prefilled or assigned
+            if peak_info.startswith("Prefilled"):
+                # Remove from prefilled_pairs and corresponding lines
+                try:
+                    pixel = float(re.findall(r'Prefilled - Pixel:\s*(\d+)', peak_info)[0])
+                    wavelength = float(re.findall(r'Wavelength:\s*([\d.]+)', peak_info)[0])
+                    # Remove from prefilled_pairs
+                    self.prefilled_pairs = [
+                        pair for pair in self.prefilled_pairs 
+                        if not (np.isclose(pair[0], pixel, atol=1e-2) and np.isclose(pair[1], wavelength, atol=1e-2))
+                    ]
+                    # Remove corresponding line
+                    self.prefilled_peak_lines = [
+                        line for line in self.prefilled_peak_lines 
+                        if not (np.isclose(line.get_xdata()[0], pixel, atol=1e-2) and 
+                                np.isclose(line.get_ydata()[0], self.data[int(pixel)], atol=1e-2))
+                    ]
+                except (IndexError, ValueError):
+                    messagebox.showerror("Parsing Error", f"Failed to parse prefilled peak information: {peak_info}")
+                    continue
+            elif peak_info.startswith("Assigned"):
+                # Remove from assigned_pairs and corresponding lines
+                try:
+                    pixel = float(re.findall(r'Assigned - Pixel:\s*(\d+)', peak_info)[0])
+                    wavelength = float(re.findall(r'Wavelength:\s*([\d.]+)', peak_info)[0])
+                    # Remove from assigned_pairs
+                    self.assigned_pairs = [
+                        pair for pair in self.assigned_pairs 
+                        if not (np.isclose(pair[0], pixel, atol=1e-2) and np.isclose(pair[1], wavelength, atol=1e-2))
+                    ]
+                    # Remove corresponding line
+                    self.assigned_peak_lines = [
+                        line for line in self.assigned_peak_lines 
+                        if not (np.isclose(line.get_xdata()[0], pixel, atol=1e-2) and 
+                                np.isclose(line.get_ydata()[0], self.data[int(pixel)], atol=1e-2))
+                    ]
+                except (IndexError, ValueError):
+                    messagebox.showerror("Parsing Error", f"Failed to parse assigned peak information: {peak_info}")
+                    continue
+            else:
+                # Unknown format
+                messagebox.showerror("Unknown Format", f"Peak information format is unrecognized: {peak_info}")
                 continue
-        # Clear and replot all markers
-        self.ax.lines = [line for line in self.ax.lines if line.get_label() not in ['Assigned Peak', 'Prefilled Peak']]
-        # Replot all assigned peaks
-        for pair in self.pixel_wavelength_pairs:
-            pixel, wl = pair
-            self.ax.plot(pixel, self.data[int(pixel)], 'gx', markersize=12, label='Assigned Peak')
-        # Replot prefilled peaks
+
+        # Remove lines with labels 'Assigned Peak' and 'Prefilled Peak'
+        for line in self.ax.lines[:]:  # Iterate over a copy of the list
+            if line.get_label() in ['Assigned Peak', 'Prefilled Peak']:
+                line.remove()
+        
+        # Replot remaining prefilled peaks
         for pair in self.prefilled_pairs:
             pixel, wl = pair
-            self.ax.plot(pixel, self.data[int(pixel)], 'bx', markersize=12, label='Prefilled Peak')
+            # Avoid duplicating labels
+            label = 'Prefilled Peak' if not any(lbl == 'Prefilled Peak' for lbl in [line.get_label() for line in self.ax.lines]) else '_nolegend_'
+            line, = self.ax.plot(pixel, self.data[int(pixel)], 'bx', markersize=12, label=label)
+            self.prefilled_peak_lines.append(line)
+        
+        # Replot remaining assigned peaks
+        for pair in self.assigned_pairs:
+            pixel, wl = pair
+            # Avoid duplicating labels
+            label = 'Assigned Peak' if not any(lbl == 'Assigned Peak' for lbl in [line.get_label() for line in self.ax.lines]) else '_nolegend_'
+            line, = self.ax.plot(pixel, self.data[int(pixel)], 'gx', markersize=12, label=label)
+            self.assigned_peak_lines.append(line)
+        
+        # Update legend to remove duplicate labels
+        handles, labels = self.ax.get_legend_handles_labels()
+        unique = {}
+        for handle, label in zip(handles, labels):
+            if label not in unique and label != '_nolegend_':
+                unique[label] = handle
+        self.ax.legend(unique.values(), unique.keys(), loc='best')
+        
+        # Redraw the canvas
         self.canvas.draw()
+        
+        # Update status or provide user feedback
+        if self.gui:
+            self.gui.update_status("Selected peak(s) removed successfully.")
 
     def finish_assignment(self):
         """Close the window and indicate completion."""
-        if not self.pixel_wavelength_pairs and not self.prefilled_pairs:
+        if not self.assigned_pairs and not self.prefilled_pairs:
             if not messagebox.askyesno("No Assignments", "No peaks have been assigned. Do you want to exit without assigning?"):
                 return
+        # Combine prefilled and assigned peaks
+        all_pixel_wavelength_pairs = self.prefilled_pairs + self.assigned_pairs
+        print("Assigned Peaks:", all_pixel_wavelength_pairs)
         self.destroy()
 
     def on_close(self):
         """Handle window close event."""
-        if not self.pixel_wavelength_pairs and not self.prefilled_pairs:
+        if not self.assigned_pairs and not self.prefilled_pairs:
             if not messagebox.askyesno("No Assignments", "No peaks have been assigned. Do you want to exit without assigning?"):
                 return
         self.destroy()
@@ -1182,15 +1280,24 @@ class ReductionGUI:
         canvas.get_tk_widget().pack(fill='both', expand=True)
 
     def launch_peak_assignment(self, xaxis, data, allcens, prefilled_pairs=None):
-        """Launches the Peak Assignment window and returns pixel-wavelength pairs."""
-        # Create the PeakAssignmentWindow
-        peak_window = PeakAssignmentWindow(self.root, xaxis, data, allcens, prefilled_pairs=prefilled_pairs)
+        """Launches the Peak Assignment window and returns combined prefilled and assigned pixel-wavelength pairs."""
+        # Create the PeakAssignmentWindow and pass self as gui
+        peak_window = PeakAssignmentWindow(
+            self.root,
+            xaxis,
+            data,
+            allcens,
+            prefilled_pairs=prefilled_pairs,
+            gui=self  # Pass reference to main GUI for status updates
+        )
 
         # Wait for the window to be closed
         self.root.wait_window(peak_window)
 
-        # Retrieve the pixel-wavelength pairs
-        return peak_window.pixel_wavelength_pairs
+        # Combine prefilled and assigned pairs
+        all_pixel_wavelength_pairs = peak_window.prefilled_pairs + peak_window.assigned_pairs
+
+        return all_pixel_wavelength_pairs
 
     def display_plots(self):
         """Displays the plots of biases, master bias, flats, master flat, and calibration steps."""
