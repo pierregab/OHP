@@ -1,88 +1,0 @@
-SIMPLE  =                    T / file does conform to FITS standard             BITPIX  =                  -32 / number of bits per data pixel                  NAXIS   =                    3 / number of data axes                            NAXIS1  =                 2048 / length of data axis 1                          NAXIS2  =                    1 / length of data axis 2                          NAXIS3  =                    1 / length of data axis 3                          EXTEND  =                    T / FITS dataset may contain extensions            COMMENT   FITS (Flexible Image Transport System) format is defined in 'AstronomyCOMMENT   and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H HEAD    = 'DU940P_BV'          / Head model                                     ACQMODE = 'Single Scan'        / Acquisition mode                               READMODE= 'Image   '           / Readout mode                                   IMGRECT = '1, 2048, 512, 1'    / Image format                                   HBIN    =                    1 / Horizontal binning                             VBIN    =                  100 / Vertical binning                               SUBRECT = '1, 2048, 339, 240'  / Subimage format                                DATATYPE= 'Counts  '           / Data type                                      XTYPE   = 'Pixel number'       / Calibration type                               XUNIT   =                    0 / Calibration units                              RAYWAVE =                 422. / Rayleigh Wavelength                            CALBWVNM=                    1 / Wave calibration                               TRIGGER = 'Internal'           / Trigger mode                                   CALIB   = '0,1,0,0 '           / Calibration                                    DLLVER  = '4.29.30012.0'       / Software Version                               EXPOSURE=                 240. / Total Exposure Time                            TEMP    =                 -90. / Temperature                                    READTIME=              2.0E-05 / Pixel readout time                             OPERATN =                    0 / Type of system                                 GAIN    =                    2 / Gain                                           EMREALGN=                    0 / EM Real Gain                                   VCLKAMP =                    0 / Vertical Clock Amplitude                       VSHIFT  =             7.31E-06 / Vertical Shift Speed                           PREAMP  =                   4. / Pre Amplifier Gain                             SERNO   =                22712 / Serial Number                                  UNSTTEMP=                -999. / Unstabilized Temperature                       BLCLAMP =                    T / Baseline Clamp                                 PRECAN  =                    0 / Prescans                                       FLIPX   =                    0 / Horizontally Flipped                           FLIPY   =                    0 / Vertically Flipped                             CNTCVTMD=                    0 / Count Convert Mode                             CNTCVT  =                    0 / Count Convert                                  DTNWLGTH=                 550. / Detection Wavelength                           SNTVTY  =                   0. / Sensitivity                                    SPSNFLTR=                    0 / Spurious Noise Filter Mode                     THRSHLD =                   0. / Threshold                                      PCNTENLD=                    0 / Photon Counting Enabled                        NSETHSLD=                    0 / Number of Photon Counting Thresholds           PTNTHLD1=                   0. / Photon Counting Threshold 1                    PTNTHLD2=                   0. / Photon Counting Threshold 2                    PTNTHLD3=                   0. / Photon Counting Threshold 3                    PTNTHLD4=                   0. / Photon Counting Threshold 4                    AVGFTRMD=                    0 / Averaging Filter Mode                          AVGFCTR =                    1 / Averaging factor                               FRMCNT  =                    1 / Frame Count                                    PORTMODE=                   -1 / Port Readout Mode                              LSHEIGHT=                    0 / Exposure Window Height                         LSSPEED =                   0. / Line Scan Speed                                LSALTDIR=                    0 / Alternating Readout Direction                  LSCTRL  =                    0 / Scan Speed Control                             LSDIR   =                   -1 / Readout Direction                              FKSMODE =                    0 / Fast Kinetics Storage Mode                     FKTMODE =                   -1 / Fast Kinetics Time Scan Mode                   USERTXT1= '        '           / User text                                      USERTXT2= '        '           / User text                                      USERTXT3= '        '           / User text                                      USERTXT4= '        '           / User text                                      DATE    = '2024-12-02T22:17:31' / file creation date (YYYY-MM-DDThh:mm:ss)      FRAME   = '2024-12-02T22:17:31.000' / Start of Frame Exposure                   ESHTMODE=                   -1 / Electronic Shuttering Mode                     HIERARCH PREAMPGAINTEXT = '4x      ' / Pre-Amplifier Gain                       HIERARCH SPECTROGRAPHSERIAL = '        ' / Spectrograph Serial                  HIERARCH SHAMROCKISACTIVE =  0 / Shamrock is active                             HIERARCH SPECTROGRAPHNAME = 'Spectrograph_None' / Spectrograph name             HIERARCH SPECTROGRAPHISACTIVE = 1 / Spectrograph is active                      HIERARCH IRIGDATAAVAILABLE = 0 / IRIG Availability                              IRIGDATA= '        '           / IRIG Timestamp                                 HIERARCH PIVENABLE =         0 / PIV Mode Status                                NUMKIN  =                    1 / Series length                                  END                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             Eê EÄ E– E E  EÄ E@ EÄ E  E EÄ E– E` E@ E	 E† E¿ E‡ E0 E	  Eê E` E† E ¿ EP EÄ Eê E@ E	ê Ep Eê E	@ EP E– E E` EP E– Ep E E0 E E  E0 E† E
-0 E‡ E` E
-∞ E† E‡ E– E E‡ E` E∞ Eê EP E
-¿ E– E  E  E∞ E E¿ E‡ EÄ E‡ E‡ Eê E¿ Ep E E¿ E@ EÄ EP E– E` E E  E  E∞ E  E∞ E– E@ E  E‡ E E@ E– E0 E0 E  EÄ E0 E– EP EÄ E0 E E@ E  EP E‡ E
- E Eê E Eê Eê E
- E
-¿ E
-  E  E
-Ä E	` E† E	p E
- E  E E
-P E
-  E
-¿ E∞ E@ E¿ EP E` E@ EÄ E E∞ E` E  E E@ E† E	P E† E E0 E E– E‡ Ep E– EP E0 E∞ E∞ Eê E– E† E E‡ E	Ä E0 Eê E  E  EP Ep E‡ E  E† E‡ E EÄ E@ E EÄ E† E	  E` E0 E∞ E EÄ E¿ E@ E  E0 Ep E  E E	‡ E E E@ E E
-¿ E	‡ E	 E@ E
- E
-@ E† E E– E∞ E– Ep E
-∞ Eê E@ E
-† E† E  E	p E	∞ E
-– E0 E
-¿ E
-p E0 E0 E	– E  E	† E
-@ E
- E  Eê EÄ Ep Eê E@ E	‡ E∞ E‡ E@ E∞ E  EP Eê E  E` E
-  E@ E
- E– E
-  E	  E` Eê Ep E0 E0 E` Ep E` E∞ E E‡ EÄ E
-p E E∞ E0 E¿ EÄ E∞ EÄ E‡ E E	0 E‡ E Eê EP EÄ E  E` E‡ E
-ê E  E¿ E@ E  E∞ E@ E	ê E0 E	` EP Ep EP E
-‡ Eê E	ê E  Ep E	@ E† E` E¿ E	` E  E` E‡ E∞ E	‡ Ep EÄ E E† EÄ E– E† EÄ E	 E  E∞ E0 Ep EP E¿ E
-∞ E‡ EP E∞ E  E	` E
-  EÄ E	† E¿ Eê E	‡ E
-p E
-  Ep E	– E	– E– E¿ E0 E  E E0 E‡ Ep E E
-– E E† E– E  E	¿ E	ê E   EÄ E∞ E  EP E	– E‡ E	∞ E0 E EP EP E¿ E@ Eê EP E@ D˝@ E0 E ‡ E E	† E` E† E E
-P E  E@ EP E$‡ E– EP E¿ E– E ` E∞ E– E¿ E¿ E∞ E@ Ep E
-  E
-0 E E E  E
-Ä E	0 E  E‡ E∞ E	ê E‡ E  E E  E	0 E	¿ E	  EP E@ E0 E∞ E‡ E– Ep Ep E¿ E  EP E
-@ E
-0 E– E¿ E0 E` E† E– EP E	– E` E@ EÄ E E– EÄ E` E† E‡ E‡ E– EP E∞ E– E∞ EP E¿ E0 Eê E	¿ E† E‡ E
-Ä E  E¿ E† E	 E† E  E EÄ E	∞ E† E	  E
-† Eê E	¿ Ep E E
-@ E E  E∞ E† E	ê Ep E† E E E‡ E` E	† Eê E E
-@ E  E` E	P E
-P E– E E  EÄ E
-  E@ E∞ E† Eê Eê Eê E
-ê E  E	ê E
-– E	@ E E  E	` E
- E∞ E` E
-0 EÄ EÄ E‡ E  E` E@ E	0 E	∞ E@ E∞ E∞ E Eê E
-  E` E	¿ E  E– E‡ Eê E† EÄ E	` E` E∞ E	p Ep E E E– Ep EP E
-∞ E– E  E0 E  E	@ E‡ EÄ E
-  EP E
-  E∞ E‡ E
-  E@ E` E0 E  E∞ E  E
-¿ E	 E E	0 E E† E E` E  E‡ E	` E∞ EP E‡ E¿ EP EÄ E E
-  E‡ E¿ E@ E	– E0 E– E¿ E@ E
-0 E– E	@ E‡ E  E¿ E  Eê E E† E0 E  E
-0 Ep E
-` E† E  Ep Eê E  E¿ E	  E∞ Eê E∞ E` Ep E E` E	¿ E  E` E  E  E E¿ E E† Eê E E E¿ E‡ E@ E` EÄ E† E E∞ EP EP E E  E0 E E  E  EP E0 EÄ Ep E– E‡ E† EP E‡ E† EÄ E¿ E  E– E– Eê E  E0 E– E` E¿ EÄ E  E‡ E E E@ EÄ E– E† E† E
-† E‡ Eê E
-ê E  EÄ Eê Ep EP E E¿ E
- E
-p Ep E` E` E† EP E0 Ep E0 E  E	Ä E¿ E
-  E E
-p EP EÄ E† E  E0 E0 E0 E  Ep E
-0 E0 E	 E0 Ep E‡ E
-Ä E0 E@ E
-– E† E
-∞ E@ E∞ E	  E	† EP Ep Ep E
-Ä E` E† E– EP E@ E E– E` E E@ E¿ EP E  E– EP Ep E‡ E@ E– E† E E‡ E@ E` E  E E E‡ EP E E0 E E† EP E† E¿ E¿ Ep E∞ E– EÄ E` E0 E  E E@ E0 E¿ E E@ E– Ep E0 E‡ E– E† E‡ E0 E  E† E Eê E¿ E  EÄ E¿ E0 E` EÄ EÄ E† Eê Ep E Eê E0 Eê E  E– EP E Ep EP EP EP E∞ E@ E† E– E
-0 E∞ EP Ep E  E  E	¿ EÄ E
-† E
-‡ E	 E† E
-‡ E E
-p E¿ E¿ E∞ E– E E  EÄ E@ E
-P E¿ E EP EÄ E` E0 E  EP E@ E† E‡ E E∞ Eê E Ep E0 Eê E  E  E0 Eê Ep E¿ Ep E@ EÄ EÄ EÄ E¿ EP Eê E` E¿ E  E  E¿ E† Ep E† E∞ EP E¿ E E‡ E¿ Eê Ep Ep Eê E` E` E@ Eê E– E@ E E¿ E Ep EP E∞ E– E E0 E† E  E  E  E E0 E` E E– E‡ EÄ E‡ EP Eê E† E` Ep E† EÄ E– EÄ E† E¿ E∞ E† Eê Eê E∞ E¿ EÄ E  E E∞ Eê E` E‡ E E E  E– E  E– E` E† E¿ EÄ E E‡ E– E  E` E0 E"‡ EFÄ E§† E›  EÚh EÛà E‹ E≠® E[† E7 E4  E00 E5` E2p E8ê E8 E9ê E<∞ EC– EA‡ EH– ELê EQ– EP ER@ EW† EZÄ EY0 E^¿ EgP EiP EzÄ EÅp Eè  E‘¯ FNå Fï F©n F¶“ FíZ FXT EÓ∏ Eó¿ Eäh EÄ  EÑH EÑ‡ Ez‡ EÇà EÄ∏ EÅh Eu Et¿ Ev  EqÄ EqÄ Es  EiÄ Eb` Eh` Ec‡ EYp E\ê E\† E[Ä ER– EU‡ EO ET ETÄ EW  EPÄ EQ† EL@ ELp EKP EPÄ EX† EZ Ef∞ Eò» F%ÿ FÄ“ Fì‰ Fì‹ F} FEP EÃ  E  Eìh E^0 EU0 EW@ ER‡ EW` ET0 ESê EQê ET  EWp EP ES‡ EL` EKP EM¿ ER` EF  EI  EH@ ED0 E@ E>P E:∞ E= E?† E3∞ E5` E0P E2 E+P E)‡ E+  E&p E  E Eê E E‡ E– E‡ EÄ E@ E  Eê E  E@ E` E  Ep EP Ep E‡ E† E  E EP E– Ep E∞ EÄ E¿ E	p E‡ E– E∞ E
-P E E* E@ E  E0 E
-∞ E Eê E	 E` E E∞ E E	† E@ Eê E  E Eê E∞ EÄ E E∞ E  E∞ E0 E	¿ E0 E† E
-¿ E	 E
-ê E E` E0 E E	p Eê E@ E0 E† E
-p E@ E
-@ E¿ E¿ E EÄ E E‡ EP E` E E E∞ Ep E	Ä E E∞ E E  E† E‡ E` E0 E¿ E E
-ê E  E  E@ E¿ E† E @ E 0 EP Eê E‡ E
-` E E† Eê E∞ E– E† Ep E‡ E@ E` E` EÄ E‡ E¿ E
-  E– E	 E† E  E0 E  E Eê E` Ep E– Eê E  E` E∞ Ep E` E  E@ E0 E‡ E∞ E@ E  E E0 E– E– E‡ E‡ E E– E– E` EÄ E  E EÄ E‡ EÄ E‡ E¿ E0 E$ E#0 E!‡ E– E#Ä Ep E‡ E‡ E– E#∞ E∞ E– E0 E∞ E E0 E– E` Ep E Ep E– E'  E"  E ê E† E¿ E‡ E∞ E"† Ep EÄ E(p EÄ E4  Ej¿ E=ê E0 E@ E E Eê E∞ E Eê E` E E` E@ E† E` E Eê EP E
-0 E‡ E@ E0 E@ Ep Ep E¿ E† Eê E– E E` EP E	‡ E` Eê E  E  E† Ep E– E E∞ EP E` E– E` E¿ E– E!P E(‡ E>– EI¿ ER‡ ELP EI‡ E3p E-p E, E+ E-` E* E00 E/‡ E,` E.Ä E5 E3` E-` E7 E=@ E?ê E;‡ E<@ EB@ EA E=∞ EEÄ EJ  EF EO¿ EZ  Eb@ E}p EÜò Eä( Eä  EÅp Ei† EXp EV– EO– EZ0 EZê EW  EY– E^‡ Ec E^  Ea† Ef E^– E_– EdÄ E_` E\@ E[` E` Ecê E^` EV0 Ec` EX` EU E[` EV ET` EP EK‡ EJ¿ EI EE  EE` EFp ECp ED@ EG∞ EAP EC¿ EHê EC  E?@ EA¿ ECP E@∞ ED` EFÄ E> E?¿ E6p E:Ä E4 E3– E3 E0‡ E1 E+∞ E'P E/∞ E$  E!† E¿ EÄ E∞ E– E  E– E  E E Ep EP E E@ E E† E∞ E E∞ EP EÄ E E  Ep E@ E– Eê Eê Eê E‡ E E¿ E† E– E` E– E  E– E` E¿ E  E‡ E@ EP E` E  E¿ Eê E	` E  E` Eê EP E– Ep E` E	P E– E` EÄ E
-‡ E  E` E∞ Ep E† E@ E  E` EÄ E	0 E	 E	ê E– E¿ E‡ E0 E– E	‡ Eê E Ep E0 EÄ E– E EÄ E0 E  E‡ Ep D˙† Dˇ  D˚@ E  D¸Ä D¸‡ D˚¿ D˝¿ D¯` D¸  Dı‡ D˙† Dˆ@ D¯  D˙@ D˘Ä Dˆ` D˚@ DÒ† DÚ† D¸Ä D¿ DÚÄ Dı¿ D@ DÓ  DÍ@ DÚ‡ DÌ‡ DÌ@ Dı† DÚÄ DÛ¿ DË` DÏ  DÌ¿ DÎ† DÙ† DÒ` Dı` DÙ@ DÓ  Dı‡ DÔ  DÏ` DÔ‡ DÒ† DÌ† D` DË@ DÍ‡ Dˆ† D  DÁÄ DÎÄ DÏ† D¸¿ DÓ@ DÚ@ D˚  DÁÄ DÙ  DÓÄ DÍ  DÚÄ DÒ@ DÔ‡ D  DÄ DÛ` D„¿ DÈ† DÌ† DÁ@ DÌ@ D„¿ DË  D@ DÓ  D„‡ DÈ@ D·‡ D‰  D·¿ DÁ‡ D‰` D„` DÂ  DÁ@ DﬁÄ D‹@ D›‡ DÏÄ DÈÄ DÈ@ D‡¿ D„Ä DÈ‡ D‚Ä DÂ  D⁄† D‰¿ D‰‡ DÍ  D·¿ D€  D‚† D„¿ D‰‡ Dﬂ@ D›Ä Dﬂ  D‚@ DÍ@ DÍ@ Dﬂ  D‹  DﬂÄ D·  Dﬁ` D„` Dﬂ† D‡@ D‚¿ DÂ@ DÏ  Dﬂ  DÊ  DÂ† D‚† D⁄  DÊ  DÁ¿ D€¿ D‚¿ D„  DÂ¿ D„† DÁ¿ DÏ  DÏ‡ DÈ` DË‡ DÚ` D‰@ D„Ä DÏ† DËÄ DÈ@ DÎ† D”  D–‡ D»Ä Dæ  DΩ† D¿¿ D»¿ DÀ‡ D»‡ DÕ  D»` Dœ  D Ä D—† D“† Dÿ  D–` D”` D Ä D◊` D÷@ D‘  DŒ† DŒ  DŸ  D€Ä D·† DÁ` D“Ä DÂ  D·  DÂ  DË@ DÛ` DÁ` DÍ  DÂ† Dﬁ  D‡  DÈ` DÂ@ DÎ  DŸ@ D’† D÷` D“† DÍ@ DÈ  D‰` D‘@ D⁄` DÕ‡ D·† D‰@ DÓ‡ D„¿ DﬁÄ D‡  D“‡ D † D‘  Dﬂ` DÎ` D„‡ D›  D÷@ DÀ‡ D÷¿ D–‡ D›  D·` Dﬁ  D“  D◊` D—† D¬¿ D»‡ D–Ä D”  D”¿ D’‡ D–@ D…¿ D√Ä D¬` Dª` D–` DÕ  D ¿ Dœ  DÀ@ DÕÄ D¿Ä D¬† D¬@ D∏† D…  D«‡ DÃ  DÃ  Dƒ† D—` D»† Dæ  Dº¿ D√¿ D∞† D√` D«@ D«‡ D∏‡ D∆‡ D≈@ D¡Ä D∏` D¬Ä Dµ† Dæ  D¡  Dø  DºÄ D¡  DøÄ D√  D¿` DπÄ Dø  D∫Ä D∫` Dƒ@ D∫@ DªÄ D¿  D¿` Dº  DƒÄ Dø¿ D¬` Dª‡ D≤@ Dº@ Dπ  D¬† D∫Ä D¿Ä D¡Ä Dæ@ D∆¿ DΩ` DΩ  D∆† Dæ† D∫` Dæ@ Dµ@ Dº@ Dø† Dƒ` D∂` Dµ¿ D¿† D∞  Dπ  Dµ‡ D∏  Dµ¿ D∑  D∫` D≤Ä D≥  D≥† DÆ¿ Dπ  D±† D¥‡ Dπ  Dº† D∂¿ Dº¿ D¥@ D¥  D∫@ D∫` D∏‡ Dµ` Dµ  D±† D¥‡ Dπ  Dπ‡ Dº  Dº` D≤‡ Dπ† D∫  D∞‡ D≥@ D¥¿ D±` D∏¿ D™` D≥‡ D∑¿ Dº` Dπ  D≠  Dµ@ D±  DØ¿ D¨¿ Dµ  D±  D™` Dµ` D≥† Dæ  DØ` DÆÄ D¥Ä D∏` Dª@ D¥  DØ‡ Dπ¿ DΩÄ D¿¿ Dº† D≥@ Dπ  D∂` D¿@ Dµ¿ Dπ¿ Dº† DØ@ D±@ D∞† D±@ Dµ@ D∞¿ D∑  D≤` D≥@ D∂  D∫` D¥‡ D≥† Dº@ D¥‡ D∑  Dπ‡ DøÄ D≥@ D∏‡ D±` D∑  D∫  D∂  D¥¿ DµÄ D∫¿ D∑‡ D≤  Dπ` D¥` Dª† Dµ† D©‡ D¨¿ D∫¿ D∞  D±Ä Dµ¿ D©† D≠  D∑¿ D≤¿ D¨† Dº† D±† Dµ† D≥¿ D¨` DÆ‡ D≠† DµÄ DØ‡ Dµ@ D∞@ Dø  Dπ† D¥  D¡† D≤  DÆ‡ D™† Dµ¿ Dµ` D≠‡ Dº¿ DºÄ Dº‡ DÆ  D∫¿ D∫@ DΩ† D¥@ D≥Ä Dµ@ D¨  D≥‡ D≥@ D∏¿ Dµ¿ DØ@ D±@ D¥† D∞@ D∏‡ Dπ‡ D∂‡ D≠¿ D≤Ä Dº‡ D≥‡ D∏@ DæÄ Dº¿ D≥¿ Dø  Dπ` Dª  Dª‡ Dª` D∑‡ D¬` D¿Ä D«‡ DÃ  DŒ† DÕ@ Dﬂ  D÷  D’@ D◊  D⁄‡ Dÿ@ DﬁÄ DÍ  D‡` D‚` DÊ‡ DÂ@ DÊ† DÊ` DÎ` DÊ† D‰` DÁ† DŸ†                                                                                                                                                                                                                                                                                                                                                                                                                                                                 

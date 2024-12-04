@@ -439,8 +439,12 @@ def create_color_images(stacked_files, color_combinations, stacked_dir, object_n
                 else:
                     rgb_channels[color] = np.zeros((100, 100))  # Default to a small array if no sample
 
-        # Stack channels into an RGB image
+        # Stack channels into an RGB image (height, width, 3)
         rgb_image = np.dstack((rgb_channels['R'], rgb_channels['G'], rgb_channels['B']))
+        
+        # Verify the shape of the RGB image
+        print(f"    - RGB image shape after stacking (height, width, 3): {rgb_image.shape}")
+        # Expected shape: (height, width, 3)
 
         # Ensure rgb_image is a regular NumPy array (not a MaskedArray)
         if isinstance(rgb_image, np.ma.MaskedArray):
@@ -448,6 +452,21 @@ def create_color_images(stacked_files, color_combinations, stacked_dir, object_n
 
         # Convert to float32 for FITS saving
         rgb_image = rgb_image.astype(np.float32)
+
+        # Transpose the array to (3, height, width) to match FITS's (NAXIS3, NAXIS2, NAXIS1)
+        rgb_image_fits = np.transpose(rgb_image, (2, 0, 1))
+        
+        # Verify the shape after transposing
+        print(f"    - RGB image shape after transposing for FITS (3, height, width): {rgb_image_fits.shape}")
+        # Expected shape: (3, height, width)
+
+        # Ensure the array is contiguous in memory
+        rgb_image_fits = np.ascontiguousarray(rgb_image_fits)
+        print(f"    - RGB image is contiguous: {rgb_image_fits.flags['C_CONTIGUOUS']}")
+
+        # Final verification
+        assert rgb_image_fits.ndim == 3 and rgb_image_fits.shape[0] == 3, \
+            f"RGB image does not have shape (3, height, width). Current shape: {rgb_image_fits.shape}"
 
         # Display the RGB image with the object name as the title
         plt.figure(figsize=(8, 8))
@@ -466,12 +485,32 @@ def create_color_images(stacked_files, color_combinations, stacked_dir, object_n
 
         # Save the RGB image as a FITS file correctly
         rgb_fits = os.path.join(stacked_dir, f'{base_filename}.fits')
-        # Create a FITS header
+
+        # Create a FITS header with additional keywords
         header = fits.Header()
         header['OBJECT'] = object_name  # Keeps the original object name
         header['COMMENT'] = f'RGB Combination {combo_idx}: ' + ', '.join([f"{k}:{v}" for k, v in color_combination.items()])
-        hdu = fits.PrimaryHDU(rgb_image, header=header)
+        
+        # Add specific keywords to indicate RGB channels
+        header['COLOR'] = 'RGB'  # Custom keyword to indicate color image
+        header['CTYPE3'] = 'COLOR'  # Indicate that the third axis is color
+        header['CRVAL3'] = 1  # Reference value for third axis
+        header['CDELT3'] = 1  # Increment per pixel for third axis
+        header['CRPIX3'] = 1  # Reference pixel for third axis
+        header['CUNIT3'] = ' '  # No unit for color axis
+        header['PCOUNT'] = 0  # Parameter count
+        header['GCOUNT'] = 1  # Group count
+
+        # Optionally, define the specific color for each channel
+        header['CHANNEL1'] = 'Red'
+        header['CHANNEL2'] = 'Green'
+        header['CHANNEL3'] = 'Blue'
+
+        # Create the Primary HDU with the correct shape and header
+        hdu = fits.PrimaryHDU(rgb_image_fits, header=header)
         hdul = fits.HDUList([hdu])
+
+        # Write to the FITS file
         hdul.writeto(rgb_fits, overwrite=True)
         print(f"    - Final RGB FITS image saved to: {rgb_fits}")
 

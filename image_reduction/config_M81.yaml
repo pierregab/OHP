@@ -1,0 +1,31 @@
+# Configurations for image processing
+
+object_name: "M81" 
+
+data_paths:
+  bias_frames: 'data/photo/offsets/'
+  dark_frames: 'data/photo/dark/'
+  flat_frames: 'data/photo/flats/'
+  science_images: 'data/photo/M81/'
+
+filters_to_process:
+  - B
+  - R
+  - V
+  - Halpha
+
+process_dark_frames: True
+
+output_dirs:
+  base_output_dir: 'output'
+  reduced_dir: 'output/reduced'
+  aligned_dir: 'output/aligned'
+  stacked_dir: 'output/stacked'
+
+color_combinations:
+  - R: 'R'
+    G: 'V'
+    B: 'B'
+  - R: 'Halpha'
+    G: 'V'
+    B: 'B'

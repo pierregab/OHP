@@ -28,5 +28,5 @@ color_combinations:
     G: 'V'
     B: 'B'
   - R: 'Halpha'
-    G: 'V'
-    B: 'OIII'
+    G: 'OIII'
+    B: 'B'

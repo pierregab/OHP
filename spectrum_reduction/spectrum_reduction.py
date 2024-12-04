@@ -260,7 +260,7 @@ class SpectralReduction:
         self.thar_data = data
 
         # Detect peaks
-        peaks, _ = find_peaks(data, height=6000) #12000 before 
+        peaks, _ = find_peaks(data, height=5500) #12000 before 
         self.calibration_peaks = peaks
 
         # Fit Gaussians to the peaks for better centroid determination
