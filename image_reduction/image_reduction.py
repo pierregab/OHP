@@ -612,7 +612,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process astronomical images.')
     parser.add_argument(
         '--config',
-        default='config.yaml',
+        default='config_SH2_257.yaml',
         help='Path to configuration file (default: config.yaml)'
     )
     args = parser.parse_args()
