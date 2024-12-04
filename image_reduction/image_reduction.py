@@ -5,27 +5,15 @@ import matplotlib.pyplot as plt
 import astroalign as aa
 from astropy.io import fits
 import argparse
+import yaml
 from astropy.visualization import (ImageNormalize, PercentileInterval, AsinhStretch)
 
 # -----------------------------------------------------------------------------
 # Script for Image Reduction, Alignment, Stacking, and Multiple Color Combinations
 #
 # This script performs image reduction and alignment for astronomical images.
-# It includes the creation of master bias, master dark, master flat frames,
-# reduces the science images, aligns them, stacks them per filter, and
-# creates final color-combined images based on multiple color mappings.
-#
-# Directory Structure:
-# - data/photo/offsets/     : Contains bias frames (offsets)
-# - data/photo/dark/        : Contains dark frames
-# - data/photo/flats/       : Contains flat frames for various filters
-#     - data/photo/flats/B/ : Flats for B filter
-#     - data/photo/flats/R/ : Flats for R filter
-#     - etc.
-# - data/photo/M1/          : Contains science images
-#
-# The script allows the user to select which data to process, including filters
-# and whether to include dark frame processing.
+# All modifiable options such as data paths, filters, and color combinations
+# are specified in a configuration file (config.yaml by default).
 # -----------------------------------------------------------------------------
 
 # Define functions for reading and writing FITS images
@@ -324,19 +312,23 @@ def rename_aligned_files(aligned_dir, filters_to_process):
     return renamed_files_dict
 
 # Function to stack images per filter
-def stack_images(renamed_files_dict, stacked_dir):
+def stack_images(renamed_files_dict, stacked_dir, object_name):
     """
-    Stacks aligned reduced images for each filter and saves the stacked images.
+    Stacks aligned reduced images for each filter and saves the stacked images with the object name included.
 
     Parameters:
         renamed_files_dict (dict): Dictionary with filter names as keys and lists of renamed file paths as values.
         stacked_dir (str): Directory to save the stacked images.
+        object_name (str): Name of the astronomical object being processed.
 
     Returns:
         stacked_files (dict): Dictionary with filter names as keys and paths to stacked FITS files as values.
     """
     print("\n>>> Stacking Aligned Reduced Images per Filter")
     stacked_files = {}
+
+    # Sanitize the object name for use in filenames
+    sanitized_object_name = sanitize_filename(object_name)
 
     for filter_name, files in renamed_files_dict.items():
         if not files:
@@ -356,10 +348,15 @@ def stack_images(renamed_files_dict, stacked_dir):
         # Perform median stacking
         stacked_image = np.median(stack_array, axis=0)
 
-        # Save the stacked image
-        stacked_file = os.path.join(stacked_dir, f'master_stacked_{filter_name}.fits')
+        # Define the base filename with the object name
+        base_filename = f"master_stacked_{sanitized_object_name}_{filter_name}.fits"
+        stacked_file = os.path.join(stacked_dir, base_filename)
+
+        # Read the header from the first file and update it
         header = fits.getheader(files[0])
-        header['OBJECT'] = f'MASTER_STACKED_{filter_name}'
+        header['OBJECT'] = f'MASTER_STACKED_{object_name}_{filter_name}'
+
+        # Write the stacked image to FITS file
         write_fits_image(stacked_file, stacked_image, header)
         print(f"    - Stacked image saved to: {stacked_file}")
 
@@ -367,8 +364,26 @@ def stack_images(renamed_files_dict, stacked_dir):
 
     return stacked_files
 
+import re
+
+def sanitize_filename(name):
+    """
+    Sanitizes a string to be safe for use as a filename.
+
+    Parameters:
+        name (str): The original string.
+
+    Returns:
+        str: The sanitized string.
+    """
+    # Replace spaces with underscores
+    name = name.replace(' ', '_')
+    # Remove any characters that are not alphanumeric, underscores, or hyphens
+    name = re.sub(r'[^\w\-]', '', name)
+    return name
+
 # Function to create final color images
-def create_color_images(stacked_files, color_combinations, stacked_dir):
+def create_color_images(stacked_files, color_combinations, stacked_dir, object_name):
     """
     Creates final color images by combining stacked images from different filters based on multiple color combinations.
 
@@ -376,8 +391,12 @@ def create_color_images(stacked_files, color_combinations, stacked_dir):
         stacked_files (dict): Dictionary with filter names as keys and paths to stacked FITS files as values.
         color_combinations (list): List of dictionaries mapping RGB channels to filter names.
         stacked_dir (str): Directory where stacked images are saved.
+        object_name (str): Name of the astronomical object being processed.
     """
     print("\n>>> Creating Final Color Images")
+
+    # Sanitize the object name for use in filenames
+    sanitized_object_name = sanitize_filename(object_name)
 
     for combo_idx, color_combination in enumerate(color_combinations, start=1):
         print(f"\n  > Creating Color Combination {combo_idx}: {color_combination}")
@@ -399,7 +418,12 @@ def create_color_images(stacked_files, color_combinations, stacked_dir):
                 print(f"    - Loaded and normalized {filter_name} for {color} channel")
             else:
                 print(f"    ! No stacked image found for filter {filter_name} to assign to {color} channel.")
-                rgb_channels[color] = np.zeros_like(next(iter(stacked_files.values()), None))
+                # Initialize with zeros if the filter is missing
+                sample_image = next(iter(stacked_files.values()), None)
+                if sample_image:
+                    rgb_channels[color] = np.zeros_like(read_raw_image(sample_image))
+                else:
+                    rgb_channels[color] = None  # Handle case with no stacked files
 
         # Check if at least one channel is available
         if all(v is None for v in rgb_channels.values()):
@@ -409,7 +433,11 @@ def create_color_images(stacked_files, color_combinations, stacked_dir):
         # Replace None channels with zeros
         for color in rgb_channels:
             if rgb_channels[color] is None:
-                rgb_channels[color] = np.zeros_like(next(iter(stacked_files.values()), None))
+                sample_image = next(iter(stacked_files.values()), None)
+                if sample_image:
+                    rgb_channels[color] = np.zeros_like(read_raw_image(sample_image))
+                else:
+                    rgb_channels[color] = np.zeros((100, 100))  # Default to a small array if no sample
 
         # Stack channels into an RGB image
         rgb_image = np.dstack((rgb_channels['R'], rgb_channels['G'], rgb_channels['B']))
@@ -421,61 +449,74 @@ def create_color_images(stacked_files, color_combinations, stacked_dir):
         # Convert to float32 for FITS saving
         rgb_image = rgb_image.astype(np.float32)
 
-        # Display the RGB image
+        # Display the RGB image with the object name as the title
         plt.figure(figsize=(8, 8))
         plt.imshow(rgb_image, origin='lower')
         plt.axis('off')
-        plt.title(f'Final RGB Image Combination {combo_idx}')
+        plt.title(f'{object_name} - Final RGB Image Combination {combo_idx}')  # Modified line
+
+        # Define the base filename with the object name
+        base_filename = f"{sanitized_object_name}_rgb_combo_{combo_idx}"
 
         # Save the RGB image as PNG with enhanced contrast
-        rgb_png = os.path.join(stacked_dir, f'final_rgb_image_combo_{combo_idx}.png')
+        rgb_png = os.path.join(stacked_dir, f'{base_filename}.png')
         plt.savefig(rgb_png, bbox_inches='tight', pad_inches=0)
         plt.close()
         print(f"    - Final RGB PNG image saved to: {rgb_png}")
 
         # Save the RGB image as a FITS file correctly
-        rgb_fits = os.path.join(stacked_dir, f'final_rgb_image_combo_{combo_idx}.fits')
+        rgb_fits = os.path.join(stacked_dir, f'{base_filename}.fits')
         # Create a FITS header
         header = fits.Header()
-        header['OBJECT'] = f'FINAL_RGB_COMBO_{combo_idx}'
+        header['OBJECT'] = object_name  # Keeps the original object name
         header['COMMENT'] = f'RGB Combination {combo_idx}: ' + ', '.join([f"{k}:{v}" for k, v in color_combination.items()])
         hdu = fits.PrimaryHDU(rgb_image, header=header)
         hdul = fits.HDUList([hdu])
         hdul.writeto(rgb_fits, overwrite=True)
         print(f"    - Final RGB FITS image saved to: {rgb_fits}")
 
-# Function to generate color combinations
-def get_color_combinations():
+# Helper function to determine if a filename contains the filter name
+def filename_contains_filter(filename, filter_name):
     """
-    Defines multiple color combinations for final image creation.
+    Checks if the filename contains the filter name as a substring (case-insensitive).
+
+    Parameters:
+        filename (str): The name of the file.
+        filter_name (str): The filter name to search for.
 
     Returns:
-        color_combinations (list): List of dictionaries mapping RGB channels to filter names.
+        bool: True if the filter name is found in the filename, False otherwise.
     """
-    # Define multiple color combinations
-    color_combinations = [
-        {'R': 'R', 'G': 'V', 'B': 'B'},          # Standard RGB
-        {'R': 'Halpha', 'G': 'V', 'B': 'OIII'}  # Narrow-band RGB
-    ]
-    return color_combinations
+    return filter_name.lower() in filename.lower()
 
 # Main function to process images
-def process_images(filters_to_process, process_dark_frames, science_data_path):
+def process_images(config):
     """
     Orchestrates the image reduction, alignment, stacking, and color combination process.
 
     Parameters:
-        filters_to_process (list): List of filter names to process.
-        process_dark_frames (bool): Whether to process dark frames.
-        science_data_path (str): Path to the directory containing science images.
+        config (dict): Configuration dictionary loaded from the config file.
     """
     print(">>> Starting Image Reduction, Alignment, Stacking, and Color Combination Process\n" + "="*50)
 
+    # Extract parameters from config
+    object_name = config.get('object_name', 'Unknown_Object')  # Added line
+    filters_to_process = config['filters_to_process']
+    process_dark_frames = config['process_dark_frames']
+    data_paths = config['data_paths']
+    output_dirs = config['output_dirs']
+    color_combinations = config['color_combinations']
+
+    science_data_path = data_paths['science_images']
+    bias_frames_path = data_paths.get('bias_frames', 'data/photo/offsets/')
+    dark_frames_path = data_paths.get('dark_frames', 'data/photo/dark/')
+    flat_frames_path = data_paths.get('flat_frames', 'data/photo/flats/')
+
     # Define directories for output
-    base_output_dir = "output"
-    reduced_dir = os.path.join(base_output_dir, "reduced")
-    aligned_dir = os.path.join(base_output_dir, "aligned")
-    stacked_dir = os.path.join(base_output_dir, "stacked")
+    base_output_dir = output_dirs.get('base_output_dir', 'output')
+    reduced_dir = output_dirs.get('reduced_dir', os.path.join(base_output_dir, 'reduced'))
+    aligned_dir = output_dirs.get('aligned_dir', os.path.join(base_output_dir, 'aligned'))
+    stacked_dir = output_dirs.get('stacked_dir', os.path.join(base_output_dir, 'stacked'))
 
     create_directory(base_output_dir)
     create_directory(reduced_dir)
@@ -483,7 +524,7 @@ def process_images(filters_to_process, process_dark_frames, science_data_path):
     create_directory(stacked_dir)
 
     # Step 1: Create master_bias
-    bias_files = glob.glob(os.path.join('data', 'photo', 'offsets', '*.fits'))
+    bias_files = glob.glob(os.path.join(bias_frames_path, '*.fits'))
     if not bias_files:
         print("  ! No bias files found. Exiting...")
         return
@@ -491,9 +532,8 @@ def process_images(filters_to_process, process_dark_frames, science_data_path):
     master_bias_file = create_master_bias(bias_files, reduced_dir)
 
     # Step 2: Optionally create master_dark
-    master_dark_file = None
     if process_dark_frames:
-        dark_files = glob.glob(os.path.join('data', 'photo', 'dark', '*.fits'))
+        dark_files = glob.glob(os.path.join(dark_frames_path, '*.fits'))
         if not dark_files:
             print("  ! No dark files found. Exiting...")
             return
@@ -516,7 +556,7 @@ def process_images(filters_to_process, process_dark_frames, science_data_path):
         print(f"\n>>> Processing filter: {filter_name.upper()}")
 
         # Find flats for the filter
-        flat_dir = os.path.join('data', 'photo', 'flats', filter_name)
+        flat_dir = os.path.join(flat_frames_path, filter_name)
         flat_files = glob.glob(os.path.join(flat_dir, '*.fits'))
         if not flat_files:
             print(f"  ! No flat files found for filter {filter_name}. Skipping...")
@@ -560,74 +600,33 @@ def process_images(filters_to_process, process_dark_frames, science_data_path):
     renamed_files_dict = rename_aligned_files(aligned_dir, filters_to_process)
 
     # Step 5: Stack images per filter
-    stacked_files = stack_images(renamed_files_dict, stacked_dir)
+    stacked_files = stack_images(renamed_files_dict, stacked_dir, object_name)  # Modified line
 
     # Step 6: Create final color images based on multiple color combinations
-    color_combinations = get_color_combinations()
-    create_color_images(stacked_files, color_combinations, stacked_dir)
+    create_color_images(stacked_files, color_combinations, stacked_dir, object_name)  # Modified line
 
     print("\n>>> Image Reduction, Alignment, Stacking, and Color Combination Process Completed\n" + "="*50)
-
-# Helper function to determine if a filename contains the filter name
-def filename_contains_filter(filename, filter_name):
-    """
-    Checks if the filename contains the filter name as a substring (case-insensitive).
-
-    Parameters:
-        filename (str): The name of the file.
-        filter_name (str): The filter name to search for.
-
-    Returns:
-        bool: True if the filter name is found in the filename, False otherwise.
-    """
-    return filter_name.lower() in filename.lower()
-
-# Function to generate color combinations
-def get_color_combinations():
-    """
-    Defines multiple color combinations for final image creation.
-
-    Returns:
-        color_combinations (list): List of dictionaries mapping RGB channels to filter names.
-    """
-    # Define multiple color combinations
-    color_combinations = [
-        {'R': 'R', 'G': 'V', 'B': 'B'},          # Standard RGB
-        {'R': 'Halpha', 'G': 'V', 'B': 'OIII'}  # Narrow-band RGB
-    ]
-    return color_combinations
 
 if __name__ == '__main__':
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description='Process astronomical images.')
     parser.add_argument(
-        '--filters',
-        nargs='+',
-        default=['B', 'R', 'V', 'Halpha', 'OIII'],
-        help='List of filters to process (e.g., --filters B V R Halpha OIII)'
-    )
-    parser.add_argument(
-        '--dark',
-        action='store_true',
-        default=True,
-        help='Include this flag to process dark frames'
-    )
-    parser.add_argument(
-        '--science_path',
-        default=os.path.join('data', 'photo', 'M1'),
-        help='Path to science images (default: data/photo/M1)'
+        '--config',
+        default='config.yaml',
+        help='Path to configuration file (default: config.yaml)'
     )
     args = parser.parse_args()
 
-    filters_to_process = args.filters
-    process_dark_frames = args.dark
-    science_data_path = args.science_path
+    # Read the configuration file
+    with open(args.config, 'r') as config_file:
+        config = yaml.safe_load(config_file)
 
-    # Validate filter names
-    valid_filters = ['B', 'R', 'V', 'Halpha', 'OIII']
-    for filt in filters_to_process:
-        if filt not in valid_filters:
-            print(f"  ! Invalid filter name: {filt}. Valid options are: {valid_filters}")
+    # Validate the config
+    required_fields = ['filters_to_process', 'process_dark_frames', 'data_paths', 'output_dirs', 'color_combinations']
+    for field in required_fields:
+        if field not in config:
+            print(f"  ! Missing required config field: {field}")
             exit(1)
 
-    process_images(filters_to_process, process_dark_frames, science_data_path)
+    # Call the main process_images function with the config
+    process_images(config)
