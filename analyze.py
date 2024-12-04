@@ -9,12 +9,16 @@ Date: 2024-12-04
 
 This script scans the 'Reduced/stacked' directory for stacked FITS spectra,
 identifies peaks in each spectrum based on a dynamic threshold relative to
-the mean intensity, fits Gaussian profiles to each peak, and
-generates high-quality plots with wavelength calibration and Gaussian overlays.
+the mean intensity, fits Gaussian profiles with a constant background to each peak,
+and generates high-quality plots with wavelength calibration and Gaussian overlays.
 
 Additionally, it matches detected peaks to known spectral lines using air wavelengths
 when they provide a better fit, computes the associated redshift and velocity for each match,
 and includes this information in both the summary file and the plots.
+
+Furthermore, if both [SII] λ6717 and [SII] λ6731 lines are detected and fitted,
+the script computes the electron density based on their flux ratio and includes
+this information in the summary.
 
 Usage:
     python analyze_stacked_spectra.py [--input_dir INPUT_DIR] [--output_dir OUTPUT_DIR]
@@ -31,10 +35,12 @@ Dependencies:
     - argparse
     - os
     - glob
+    - pyneb
+    - adjustText
 
 Ensure all required dependencies are installed. You can install missing packages
 using pip:
-    pip install numpy matplotlib astropy scipy
+    pip install numpy matplotlib astropy scipy pyneb adjustText
 """
 
 import numpy as np
@@ -190,24 +196,29 @@ def detect_peaks(wavelength, intensity, height, distance, prominence):
     peaks, properties = find_peaks(intensity, height=height, distance=distance, prominence=prominence)
     return peaks
 
-def gaussian(x, amplitude, mean, sigma):
+def gaussian_plus_bg(x, *params):
     """
-    Gaussian function.
+    Gaussian function with a constant background.
 
     Parameters:
         x (np.ndarray): Independent variable.
-        amplitude (float): Amplitude of the Gaussian.
-        mean (float): Mean of the Gaussian.
-        sigma (float): Standard deviation of the Gaussian.
+        *params: Parameters for the model. The first parameter is the background (bg),
+                 followed by sets of three parameters for each Gaussian (amplitude, mean, sigma).
 
     Returns:
-        np.ndarray: Gaussian function evaluated at x.
+        np.ndarray: Model evaluated at x.
     """
-    return amplitude * np.exp(-0.5 * ((x - mean) / sigma) ** 2)
+    result = np.full(len(x), 0.0)
+    bg = params[0]
+    result += bg
+    for i in range(1, len(params), 3):
+        amp, cen, wid = params[i:i+3]
+        result += amp * np.exp(-0.5 * ((x - cen) / wid) ** 2)
+    return result
 
-def fit_gaussian(wavelength, intensity, peak_idx, window):
+def fit_gaussian_plus_bg(wavelength, intensity, peak_idx, window):
     """
-    Fits a Gaussian to the data around a peak.
+    Fits Gaussian(s) with a constant background to the data around a peak.
 
     Parameters:
         wavelength (np.ndarray): Wavelength array.
@@ -216,7 +227,7 @@ def fit_gaussian(wavelength, intensity, peak_idx, window):
         window (int): Number of pixels on each side of the peak to include in the fit.
 
     Returns:
-        dict: Fit parameters (amplitude, mean, sigma) and fit success status.
+        dict: Fit parameters (background, amplitude, mean, sigma) and fit success status.
     """
     # Define the fitting window
     left = max(peak_idx - window, 0)
@@ -225,7 +236,8 @@ def fit_gaussian(wavelength, intensity, peak_idx, window):
     y_data = intensity[left:right]
 
     # Initial guesses
-    amplitude_guess = intensity[peak_idx] - np.median(intensity)
+    bg_guess = np.median(intensity)
+    amplitude_guess = intensity[peak_idx] - bg_guess
     mean_guess = wavelength[peak_idx]
     if len(x_data) > 1:
         delta_wavelength = wavelength[1] - wavelength[0]
@@ -233,20 +245,24 @@ def fit_gaussian(wavelength, intensity, peak_idx, window):
         delta_wavelength = 1  # Prevent division by zero
     sigma_guess = (delta_wavelength * window) / 2.355  # Approximate
 
+    # Initial parameter list: [bg, amp, mean, sigma]
+    initial_params = [bg_guess, amplitude_guess, mean_guess, sigma_guess]
+
     try:
-        popt, _ = curve_fit(gaussian, x_data, y_data, p0=[amplitude_guess, mean_guess, sigma_guess])
+        popt, _ = curve_fit(gaussian_plus_bg, x_data, y_data, p0=initial_params)
         fit_success = True
     except RuntimeError:
-        popt = [np.nan, np.nan, np.nan]
+        popt = [np.nan, np.nan, np.nan, np.nan]
         fit_success = False
 
     return {
-        'amplitude': popt[0],
-        'mean': popt[1],
-        'sigma': popt[2],
+        'background': popt[0],
+        'amplitude': popt[1],
+        'mean': popt[2],
+        'sigma': popt[3],
         'success': fit_success,
         'x_fit': x_data,
-        'y_fit': gaussian(x_data, *popt) if fit_success else None
+        'y_fit': gaussian_plus_bg(x_data, *popt) if fit_success else None
     }
 
 def match_spectral_lines(peak_wavelength, spectral_lines, tolerance=7.0):
@@ -345,7 +361,7 @@ def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, titl
     # Initialize a list to store label positions for y-axis adjustment
     label_positions = []
 
-    # First pass: Calculate all label positions
+    # Initialize lists to store label texts and positions
     labels = []  # To store label information for the second pass
     if peak_matches is not None:
         for idx, peak_idx in enumerate(peaks):
@@ -360,8 +376,8 @@ def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, titl
                 fit = gaussian_fits[idx]
                 if fit['success']:
                     peak_wavelength = fit['mean']
-                    # Calculate the peak's intensity assuming amplitude is the peak height above the median
-                    peak_intensity = fit['amplitude']
+                    # Calculate the peak's intensity assuming amplitude is the peak height above the background
+                    peak_intensity = fit['background'] + fit['amplitude']
 
                     # Define an offset for the label to appear above the peak (5% of y-axis range)
                     offset = 0.05 * y_range
@@ -499,11 +515,186 @@ def format_peak_detail(peak, spectral_lines, tolerance=7.0, width=13):
     return formatted_str
 
 # ======================================================================
+# Electron Density Calculation Function
+# ======================================================================
+
+def calculate_electron_density(fit_results, spectral_lines, ratio_tolerance=1.0):
+    """
+    Calculates the electron density using the flux ratio of [SII] 6717 and [SII] 6731 lines.
+
+    Parameters:
+        fit_results (list of dict): List of Gaussian fit results for all peaks.
+        spectral_lines (list of dict): List of spectral lines for matching.
+        ratio_tolerance (float): Maximum allowed difference in Angstroms to match the [SII] lines.
+
+    Returns:
+        float: Electron density in cm^-3, or np.nan if calculation is not possible.
+    """
+    try:
+        import pyneb as pn
+    except ImportError:
+        print("DEBUG: PyNeb is not installed. Please install it using 'pip install pyneb'.")
+        return np.nan
+
+    # Initialize variables to store fluxes
+    flux_6717 = None
+    flux_6731 = None
+
+    # Debug: Initialize list to track matched lines
+    matched_lines = []
+
+    # Loop through all fitted peaks to find [SII] lines
+    for idx, fit in enumerate(fit_results):
+        if not fit['success']:
+            print(f"DEBUG: Fit for peak index {idx} failed. Skipping.")
+            continue
+        wavelength = fit['mean']
+        amplitude = fit['amplitude']
+        print(f"DEBUG: Processing peak {idx} with fitted wavelength {wavelength:.2f} Å and amplitude {amplitude:.2f}.")
+
+        # Find matching spectral lines within the tolerance
+        matches = match_spectral_lines(wavelength, spectral_lines, tolerance=ratio_tolerance)
+        if not matches:
+            print(f"DEBUG: No spectral line matches found for peak {idx} at {wavelength:.2f} Å within tolerance {ratio_tolerance} Å.")
+            continue
+
+        for match in matches:
+            line_name = match['Line']
+            line_wavelength = match['Wavelength']
+            delta = match['Delta']
+            notes = match['Notes']
+            print(f"DEBUG: Peak {idx} matches line '{line_name}' at {line_wavelength:.2f} Å with delta {delta:.2f} Å. Notes: {notes}")
+
+            if line_name == "[SII]6717":
+                if flux_6717 is not None:
+                    print(f"WARNING: Multiple matches found for [SII]6717. Overwriting previous flux.")
+                flux_6717 = amplitude
+                matched_lines.append(line_name)
+            elif line_name == "[SII]6731":
+                if flux_6731 is not None:
+                    print(f"WARNING: Multiple matches found for [SII]6731. Overwriting previous flux.")
+                flux_6731 = amplitude
+                matched_lines.append(line_name)
+
+    # Debug: Check if both [SII] lines were found
+    print(f"DEBUG: Flux [SII]6717 = {flux_6717}, Flux [SII]6731 = {flux_6731}")
+    if flux_6717 is not None:
+        print(f"DEBUG: Detected [SII]6717 with flux {flux_6717:.2f}.")
+    else:
+        print("DEBUG: [SII]6717 not detected.")
+
+    if flux_6731 is not None:
+        print(f"DEBUG: Detected [SII]6731 with flux {flux_6731:.2f}.")
+    else:
+        print("DEBUG: [SII]6731 not detected.")
+
+    # Check if both fluxes are found and flux_6731 is not zero
+    if flux_6717 is not None and flux_6731 is not None:
+        if flux_6731 == 0:
+            print("DEBUG: [SII]6731 flux is zero. Cannot compute flux ratio.")
+            return np.nan
+
+        ratio = flux_6717 / flux_6731
+        print(f"DEBUG: Flux ratio [SII]6717/[SII]6731 = {ratio:.4f}")
+
+        # Use PyNeb to calculate electron density
+        # Assuming a typical temperature, e.g., 10,000 K
+        # This can be adjusted or made dynamic based on other diagnostics
+        T_e = 10000  # Electron temperature in K
+        print(f"DEBUG: Assuming electron temperature T_e = {T_e} K for electron density calculation.")
+
+        try:
+            # Initialize PyNeb's Atom for [SII]
+            SII = pn.Atom('S', 2)  # 'S', ionization stage 2 ([SII])
+
+            # Calculate electron density using the ratio
+            n_e = SII.getTemDen(ratio, tem=T_e, wave1=6716.44, wave2=6730.82)
+
+            print(f"DEBUG: Calculated electron density n_e = {n_e:.2e} cm^-3 using PyNeb.")
+            return n_e
+        except Exception as e:
+            print(f"ERROR: PyNeb encountered an error during electron density calculation: {e}")
+            return np.nan
+    else:
+        # Required lines not detected
+        print("DEBUG: Required [SII] lines not detected or fit failed. Electron density cannot be calculated.")
+        return np.nan
+
+# ======================================================================
+# New Function to Plot Zoomed-In Peaks
+# ======================================================================
+
+def plot_zoomed_peaks(wavelength, intensity, peaks, gaussian_fits, output_file, fitting_window, title=None, peak_matches=None):
+    """
+    Creates a subplot for each fitted peak, zoomed in around the peak region,
+    and overlays the observed data with the Gaussian fit.
+
+    Parameters:
+        wavelength (np.ndarray): Wavelength array.
+        intensity (np.ndarray): Intensity array.
+        peaks (np.ndarray): Indices of detected peaks.
+        gaussian_fits (list of dict): List containing Gaussian fit parameters for each peak.
+        output_file (str): Path to save the plot.
+        fitting_window (int): Number of pixels on each side of a peak to include in the plot.
+        title (str, optional): Title of the plot.
+        peak_matches (list of list of dict): List containing matched spectral lines for each peak.
+    """
+    import matplotlib.pyplot as plt
+
+    num_peaks = len(peaks)
+    # Determine grid size for subplots
+    ncols = 3  # You can adjust this based on preference
+    nrows = (num_peaks + ncols - 1) // ncols  # Ceiling division
+
+    plt.figure(figsize=(5 * ncols, 4 * nrows))
+    for idx, peak_idx in enumerate(peaks):
+        ax = plt.subplot(nrows, ncols, idx + 1)
+        fit = gaussian_fits[idx]
+        if fit['success']:
+            # Define the plotting window
+            left = max(peak_idx - fitting_window, 0)
+            right = min(peak_idx + fitting_window + 1, len(intensity))
+            x_data = wavelength[left:right]
+            y_data = intensity[left:right]
+            x_fit = fit['x_fit']
+            y_fit = fit['y_fit']
+
+            ax.plot(x_data, y_data, 'k-', label='Data')
+            ax.plot(x_fit, y_fit, 'r--', label='Gaussian Fit')
+
+            # Match spectral lines
+            matches = peak_matches[idx] if peak_matches is not None else []
+            if matches:
+                # Choose the best match based on the smallest delta
+                best_match = min(matches, key=lambda m: abs(m['Delta']))
+                line_name = best_match['Line']
+                ax.set_title(f"Peak {idx+1}: {line_name}")
+            else:
+                ax.set_title(f"Peak {idx+1}")
+
+            ax.set_xlabel('Wavelength (Å)')
+            ax.set_ylabel('Intensity')
+            ax.legend()
+            ax.grid(True)
+        else:
+            ax.set_title(f"Peak {idx+1}: Fit Failed")
+            ax.plot([], [])  # Empty plot
+            ax.set_xlabel('Wavelength (Å)')
+            ax.set_ylabel('Intensity')
+            ax.grid(True)
+
+    if title:
+        plt.suptitle(title, fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to make room for suptitle
+    plt.savefig(output_file, dpi=300)
+    plt.close()
+
+# ======================================================================
 # Main Function
 # ======================================================================
 
 def main():
-    # Argument Parser
+    # [As before, no changes to argument parsing]
     parser = argparse.ArgumentParser(description="Analyze Stacked Spectra and Plot Peaks with Gaussian Fits")
     parser.add_argument('--input_dir', type=str, default='spectrum_reduction/Reduced/stacked',
                         help='Directory containing stacked FITS spectra (default: spectrum_reduction/Reduced/stacked)')
@@ -517,8 +708,8 @@ def main():
                         help='Minimum distance between peaks in pixels (default: 10)')
     parser.add_argument('--prominence', type=float, default=180,
                         help='Minimum prominence of peaks (default: 180)')
-    parser.add_argument('--fitting_window', type=int, default=3,
-                        help='Number of pixels on each side of a peak to include in Gaussian fit (default: 3)')
+    parser.add_argument('--fitting_window', type=int, default=20,
+                        help='Number of pixels on each side of a peak to include in Gaussian fit (default: 20)')
     parser.add_argument('--save_format', type=str, choices=['png', 'pdf'], default='png',
                         help='Format to save plots (default: png)')
     args = parser.parse_args()
@@ -573,10 +764,10 @@ def main():
             # Fit Gaussians to each peak
             gaussian_fits = []
             for peak_idx in peaks:
-                fit = fit_gaussian(wavelength, data, peak_idx, fitting_window)
+                fit = fit_gaussian_plus_bg(wavelength, data, peak_idx, fitting_window)
                 gaussian_fits.append(fit)
                 if fit['success']:
-                    print(f"  Peak at index {peak_idx} fitted successfully: amplitude={fit['amplitude']:.2f}, mean={fit['mean']:.2f} Å, sigma={fit['sigma']:.2f} Å")
+                    print(f"  Peak at index {peak_idx} fitted successfully: background={fit['background']:.2f}, amplitude={fit['amplitude']:.2f}, mean={fit['mean']:.2f} Å, sigma={fit['sigma']:.2f} Å")
                 else:
                     print(f"  Peak at index {peak_idx} fit failed.")
 
@@ -598,6 +789,12 @@ def main():
             plot_spectrum(wavelength, data, peaks, gaussian_fits, plot_filename, title=title, peak_matches=peak_matches)
             print(f"Plot saved to {plot_filename}")
 
+            # Plot zoomed-in peaks
+            zoomed_plot_filename = os.path.join(output_dir, f"{base_name}_zoomed_peaks.{save_format}")
+            title_zoomed = f"Zoomed-in Fits for: {base_name}"
+            plot_zoomed_peaks(wavelength, data, peaks, gaussian_fits, zoomed_plot_filename, fitting_window, title=title_zoomed, peak_matches=peak_matches)
+            print(f"Zoomed-in plot saved to {zoomed_plot_filename}")
+
             # Append to summary
             peak_details = []
             for idx, peak_idx in enumerate(peaks):
@@ -611,10 +808,14 @@ def main():
                 }
                 peak_details.append(peak_info)
 
+            # Calculate electron density if possible
+            electron_density = calculate_electron_density(gaussian_fits, SPECTRAL_LINES, ratio_tolerance=1.0)
+
             summary.append({
                 'file': os.path.basename(fits_file),
                 'num_peaks': num_peaks,
-                'peaks': peak_details
+                'peaks': peak_details,
+                'electron_density': electron_density
             })
 
         except Exception as e:
@@ -637,8 +838,13 @@ def main():
                     # Use the updated helper function to format each peak detail
                     peak_detail_str = format_peak_detail(peak, SPECTRAL_LINES, tolerance=7.0)
                     f.write(peak_detail_str)
+                # Include electron density if available
+                if not np.isnan(entry['electron_density']):
+                    f.write(f"\nElectron Density (n_e): {entry['electron_density']:.2e} cm^-3\n")
+                else:
+                    f.write(f"\nElectron Density (n_e): N/A (Required [SII] lines not detected or fit failed)\n")
                 f.write("\n")
-        print(f"Summary of peak detections and Gaussian fits saved to {summary_file}")
+        print(f"Summary of peak detections, Gaussian fits, and electron densities saved to {summary_file}")
     except Exception as e:
         print(f"Error writing summary file: {e}")
 
