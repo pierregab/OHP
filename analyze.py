@@ -20,6 +20,9 @@ Furthermore, if both [SII] λ6717 and [SII] λ6731 lines are detected and fi
 the script computes the electron density based on their flux ratio and includes
 this information in the summary.
 
+For [OI] and [NII] spectral lines, the script calculates and reports the flux ratios
+([O I]6300/[O I]6363 and [NII]6548/[NII]6583) when applicable.
+
 For each plot, the script also generates an additional file containing subplots
 zoomed in on each fitted line group to visually inspect the quality of the fit.
 
@@ -29,6 +32,7 @@ Usage:
                                      [--height_sigma HEIGHT_SIGMA] [--distance DISTANCE]
                                      [--prominence PROMINENCE] [--cluster_distance CLUSTER_DISTANCE]
                                      [--save_format SAVE_FORMAT]
+                                     [--target_name TARGET_NAME]
 
 Dependencies:
     - numpy
@@ -40,10 +44,11 @@ Dependencies:
     - glob
     - pyneb
     - adjustText
+    - astroplan
 
 Ensure all required dependencies are installed. You can install missing packages
 using pip:
-    pip install numpy matplotlib astropy scipy pyneb adjustText
+    pip install numpy matplotlib astropy scipy pyneb adjustText astroplan
 """
 
 import numpy as np
@@ -57,6 +62,12 @@ from scipy.optimize import curve_fit
 from astropy.constants import c  # Import speed of light
 import sys
 import csv  # Added for CSV writing
+import astropy.units as u  # For units
+from astropy.time import Time  # For observation time
+from astropy.coordinates import SkyCoord, EarthLocation  # For coordinates
+from astroplan import FixedTarget  # For target information
+import pyneb as pn  # For electron density calculations
+import logging
 
 # ======================================================================
 # Spectral Lines Data
@@ -93,13 +104,12 @@ SPECTRAL_LINES = [
     {"Line": "Na I", "Wavelength_air": 5895.924, "Wavelength_vacuum": 5897.558, "Notes": "IS absorb line"},
     {"Line": "[O I]6300", "Wavelength_air": 6300.30, "Wavelength_vacuum": 6302.04, "Notes": ""},
     {"Line": "[O I]6363", "Wavelength_air": 6363.776, "Wavelength_vacuum": 6364.60, "Notes": "NIST"},
-    {"Line": "[NII]6549", "Wavelength_air": 6548.03, "Wavelength_vacuum": 6549.84, "Notes": ""},
+    {"Line": "[NII]6548", "Wavelength_air": 6548.03, "Wavelength_vacuum": 6549.84, "Notes": ""},
     {"Line": "[NII]6583", "Wavelength_air": 6583.41, "Wavelength_vacuum": 6585.23, "Notes": ""},
     {"Line": "He I", "Wavelength_air": 6678.152, "Wavelength_vacuum": 6679.996, "Notes": ""},
     {"Line": "[SII]6717", "Wavelength_air": 6716.47, "Wavelength_vacuum": 6718.32, "Notes": ""},
     {"Line": "[SII]6731", "Wavelength_air": 6730.85, "Wavelength_vacuum": 6732.71, "Notes": ""},
     {"Line": "[SIII]", "Wavelength_air": 6312.06, "Wavelength_vacuum": 6313.81, "Notes": "Use with [SIII]9068 as T diagnostic"},
-    {"Line": "[O I]5577", "Wavelength_air": 5577.3387, "Wavelength_vacuum": 5578.8874, "Notes": "Strong sky line"},
     {"Line": "[ArIII]", "Wavelength_air": 7135.8, "Wavelength_vacuum": 7137.8, "Notes": ""},
     {"Line": "[ArIII]", "Wavelength_air": 7751.1, "Wavelength_vacuum": 7753.2, "Notes": ""},
     {"Line": "Ca II", "Wavelength_air": 8498.03, "Wavelength_vacuum": 8500.36, "Notes": "Ca II triplet"},
@@ -227,6 +237,7 @@ def multi_gaussian_plus_bg(x, bg, *params):
         x (np.ndarray): Independent variable.
         bg (float): Background level.
         params: List of parameters for each Gaussian [amp1, cen1, wid1, amp2, cen2, wid2, ...]
+
     Returns:
         np.ndarray: Model evaluated at x.
     """
@@ -240,22 +251,6 @@ def multi_gaussian_plus_bg(x, bg, *params):
     return y
 
 def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
-    from scipy.optimize import curve_fit
-    import numpy as np
-    import pyneb as pn
-
-    """
-    Fits multiple Gaussians with a constant background to the data around a group of peaks.
-
-    Parameters:
-        wavelength (np.ndarray): Wavelength array.
-        intensity (np.ndarray): Intensity array.
-        peak_indices (list): Indices of the peaks in the cluster.
-        window (int): Number of pixels on each side of the cluster to include in the fit.
-
-    Returns:
-        list of dict: Fit parameters for each peak and fit success status.
-    """
     def multi_gaussian_plus_bg(x, bg, *params):
         y = bg
         num_gaussians = len(params) // 3
@@ -267,8 +262,8 @@ def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
         return y
 
     # Define the fitting window
-    left = max(min(peak_indices) - window, 0)
-    right = min(max(peak_indices) + window + 1, len(intensity))
+    left = max(np.searchsorted(wavelength, wavelength[min(peak_indices)] - window * (wavelength[1] - wavelength[0])), 0)
+    right = min(np.searchsorted(wavelength, wavelength[max(peak_indices)] + window * (wavelength[1] - wavelength[0])), len(intensity))
     x_data = wavelength[left:right]
     y_data = intensity[left:right]
 
@@ -286,11 +281,8 @@ def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
         amplitude_guess = intensity[peak_idx] - bg_guess
         amplitude_guess = max(amplitude_guess, 0)  # Amplitude should be positive
         mean_guess = wavelength[peak_idx]
-        if len(wavelength) > 1:
-            delta_wavelength = wavelength[1] - wavelength[0]
-        else:
-            delta_wavelength = 1  # Prevent division by zero
-        sigma_guess = (delta_wavelength * window) / 2.355  # Approximate
+        # Set a small initial guess for sigma
+        sigma_guess = 1.0  # Adjust this value as needed
 
         initial_params.extend([amplitude_guess, mean_guess, sigma_guess])
 
@@ -413,6 +405,9 @@ def group_peaks(peaks, cluster_distance):
     Returns:
         list of list: List of clusters, each cluster is a list of peak indices.
     """
+    if len(peaks) == 0:
+        return []
+        
     clusters = []
     current_cluster = [peaks[0]]
 
@@ -513,6 +508,83 @@ def compute_velocity(z, z_err=None):
     else:
         return v
 
+def compute_barycentric_correction(header, target_name=None, default_obs_date=None):
+    """
+    Computes the barycentric correction velocity using observation time and target coordinates.
+
+    Parameters:
+        header (astropy.io.fits.Header): FITS header containing observation metadata.
+        target_name (str, optional): Name of the target object. If not provided, attempts to get coordinates from header.
+        default_obs_date (str, optional): Hardcoded observation date in ISO format. Used if header date is missing.
+
+    Returns:
+        float: Barycentric correction velocity in km/s.
+    """
+    try:
+        # Get observation time
+        date_obs = header.get('DATE-OBS') or header.get('DATE')
+        if date_obs is None:
+            if default_obs_date is not None:
+                date_obs = default_obs_date
+                logging.warning(f"Observation date not found in header. Using hardcoded date: {date_obs}")
+            else:
+                logging.error("Observation date not found in header ('DATE-OBS' or 'DATE'). Returning 0.0 km/s.")
+                return 0.0
+        try:
+            t = Time(date_obs, format='isot', scale='utc')
+            logging.debug(f"Parsed observation time: {t.iso}")
+        except Exception as e:
+            logging.error(f"Error parsing observation time '{date_obs}': {e}. Returning 0.0 km/s.")
+            return 0.0
+
+        # Get observer location (OHP coordinates)
+        try:
+            loc = EarthLocation(lat=43.9346*u.deg, lon=5.7107*u.deg, height=650.*u.m)
+            logging.debug(f"Observer location: {loc}")
+        except Exception as e:
+            logging.error(f"Error defining observer location: {e}. Returning 0.0 km/s.")
+            return 0.0
+
+        # Get target coordinates
+        if target_name:
+            try:
+                target = FixedTarget.from_name(target_name)
+                sc = SkyCoord(ra=target.ra, dec=target.dec, frame='icrs')
+                logging.debug(f"Resolved target '{target_name}': RA={sc.ra.deg} deg, DEC={sc.dec.deg} deg")
+            except Exception as e:
+                logging.error(f"Error resolving target name '{target_name}': {e}. Returning 0.0 km/s.")
+                return 0.0
+        else:
+            ra = header.get('RA')
+            dec = header.get('DEC')
+            if ra is None or dec is None:
+                logging.error("Target coordinates ('RA' and 'DEC') not found in header. Returning 0.0 km/s.")
+                return 0.0
+            try:
+                # Attempt to parse RA and DEC using SkyCoord, accommodating different formats
+                sc = SkyCoord(ra=ra, dec=dec, unit=(u.hourangle, u.deg), frame='icrs', equinox='J2000')
+                logging.debug(f"Parsed target coordinates from header: RA={sc.ra.deg} deg, DEC={sc.dec.deg} deg")
+            except ValueError:
+                try:
+                    sc = SkyCoord(ra=ra, dec=dec, unit='deg', frame='icrs', equinox='J2000')
+                    logging.debug(f"Parsed target coordinates from header: RA={sc.ra.deg} deg, DEC={sc.dec.deg} deg")
+                except Exception as e:
+                    logging.error(f"Error parsing 'RA' and 'DEC' from header: {e}. Returning 0.0 km/s.")
+                    return 0.0
+
+        # Compute barycentric correction
+        try:
+            vcorr = sc.radial_velocity_correction(kind='barycentric', obstime=t, location=loc)
+            vcorr_kms = vcorr.to('km/s').value
+            logging.debug(f"Barycentric correction velocity: {vcorr_kms:.2f} km/s")
+            return vcorr_kms
+        except Exception as e:
+            logging.error(f"Error computing barycentric correction: {e}. Returning 0.0 km/s.")
+            return 0.0
+    except Exception as e:
+        logging.error(f"Unexpected error in barycentric correction: {e}. Returning 0.0 km/s.")
+        return 0.0
+
 def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, title=None, peak_matches=None):
     """
     Plots the spectrum with identified peaks and their Gaussian fits, including individually plotted
@@ -527,8 +599,6 @@ def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, titl
         title (str, optional): Title of the plot.
         peak_matches (list of list of dict): List containing matched spectral lines for each peak.
     """
-    import matplotlib.pyplot as plt
-
     plt.figure(figsize=(16, 10))
     ax = plt.gca()
 
@@ -607,8 +677,6 @@ def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, titl
     # Add labels, title, and grid
     ax.set_xlabel('Wavelength (Å)', fontsize=14)
     ax.set_ylabel('Intensity', fontsize=14)
-    if title:
-        ax.set_title(title, fontsize=16)
     ax.legend(fontsize=12, loc='upper right')
     ax.grid(True, which='both', ls='--', lw=0.5)
     plt.tight_layout()
@@ -627,11 +695,47 @@ def ensure_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-# ======================================================================
-# Electron Density Calculation Function
-# ======================================================================
+def compute_fwhm(sigma, sigma_err=None):
+    """
+    Computes the Full Width at Half Maximum (FWHM) from the Gaussian sigma.
 
-def calculate_electron_density(fit_results, peak_matches):
+    Parameters:
+        sigma (float): Sigma of the Gaussian.
+        sigma_err (float, optional): Uncertainty in sigma.
+
+    Returns:
+        tuple: FWHM and its uncertainty.
+    """
+    fwhm = 2.3548 * sigma  # 2 * sqrt(2 * ln(2)) * sigma
+    if sigma_err is not None:
+        fwhm_err = 2.3548 * sigma_err
+        return fwhm, fwhm_err
+    else:
+        return fwhm, None
+
+def compute_flux_ratio(flux1, flux1_err, flux2, flux2_err):
+    """
+    Computes the flux ratio of two lines and propagates the uncertainty.
+
+    Parameters:
+        flux1 (float): Flux of the first line.
+        flux1_err (float): Uncertainty in flux of the first line.
+        flux2 (float): Flux of the second line.
+        flux2_err (float): Uncertainty in flux of the second line.
+
+    Returns:
+        tuple: Flux ratio and its uncertainty.
+    """
+    if flux2 == 0:
+        return np.nan, np.nan
+    ratio = flux1 / flux2
+    if flux1 > 0 and flux2 > 0:
+        ratio_err = ratio * np.sqrt((flux1_err / flux1) ** 2 + (flux2_err / flux2) ** 2)
+    else:
+        ratio_err = np.nan
+    return ratio, ratio_err
+
+def calculate_electron_density_sii(fit_results, peak_matches):
     """
     Calculates the electron density using the flux ratio of [SII] 6717 and [SII] 6731 lines.
 
@@ -642,12 +746,6 @@ def calculate_electron_density(fit_results, peak_matches):
     Returns:
         tuple: (float, float) Electron density in cm^-3 and its uncertainty, or (np.nan, np.nan) if calculation is not possible.
     """
-    try:
-        import pyneb as pn
-    except ImportError:
-        print("PyNeb is not installed. Please install it using 'pip install pyneb'.")
-        return np.nan, np.nan
-
     flux_6717 = None
     flux_6717_err = None
     flux_6731 = None
@@ -666,19 +764,6 @@ def calculate_electron_density(fit_results, peak_matches):
                 flux_6731 = fit['flux']
                 flux_6731_err = fit['flux_err']
 
-    # Debug: Check if both [SII] lines were found
-    print(f"DEBUG: Flux [SII]6717 = {flux_6717}, Flux [SII]6731 = {flux_6731}")
-    if flux_6717 is not None:
-        print(f"DEBUG: Detected [SII]6717 with flux {flux_6717:.2e}.")
-    else:
-        print("DEBUG: [SII]6717 not detected.")
-
-    if flux_6731 is not None:
-        print(f"DEBUG: Detected [SII]6731 with flux {flux_6731:.2e}.")
-    else:
-        print("DEBUG: [SII]6731 not detected.")
-
-    # Check if both fluxes are found and flux_6731 is not zero
     if flux_6717 is not None and flux_6731 is not None:
         if flux_6731 == 0:
             print("DEBUG: [SII]6731 flux is zero. Cannot compute flux ratio.")
@@ -693,8 +778,6 @@ def calculate_electron_density(fit_results, peak_matches):
         print(f"DEBUG: Flux ratio [SII]6717/[SII]6731 = {ratio:.4f} ± {ratio_err:.4f}")
 
         # Use PyNeb to calculate electron density
-        # Assuming a typical temperature, e.g., 10,000 K
-        # This can be adjusted or made dynamic based on other diagnostics
         T_e = 10000  # Electron temperature in K
         print(f"DEBUG: Assuming electron temperature T_e = {T_e} K for electron density calculation.")
 
@@ -703,13 +786,13 @@ def calculate_electron_density(fit_results, peak_matches):
             SII = pn.Atom('S', 2)  # 'S', ionization stage 2 ([SII])
 
             # Calculate electron density using the ratio
-            n_e = SII.getTemDen(ratio, tem=T_e, wave1=6716.44, wave2=6730.82)
+            n_e = SII.getTemDen(ratio, tem=T_e, to_eval='L(6716)/L(6731)')
             # Calculate error in electron density (approximate method)
             if not np.isnan(ratio_err):
                 ratio_plus = ratio + ratio_err
                 ratio_minus = ratio - ratio_err
-                n_e_plus = SII.getTemDen(ratio_plus, tem=T_e, wave1=6716.44, wave2=6730.82)
-                n_e_minus = SII.getTemDen(ratio_minus, tem=T_e, wave1=6716.44, wave2=6730.82)
+                n_e_plus = SII.getTemDen(ratio_plus, tem=T_e, to_eval='L(6716)/L(6731)')
+                n_e_minus = SII.getTemDen(ratio_minus, tem=T_e, to_eval='L(6716)/L(6731)')
                 n_e_err = (n_e_plus - n_e_minus) / 2
             else:
                 n_e_err = np.nan
@@ -724,9 +807,89 @@ def calculate_electron_density(fit_results, peak_matches):
         print("DEBUG: Required [SII] lines not detected or fit failed. Electron density cannot be calculated.")
         return np.nan, np.nan
 
-# ======================================================================
-# Function to Plot Zoomed-In Peaks
-# ======================================================================
+def compute_flux_ratio_oi(fit_results, peak_matches, tolerance=7.0):
+    """
+    Computes the flux ratio [O I]6300/[O I]6363 and its uncertainty.
+
+    Parameters:
+        fit_results (list of dict): List of Gaussian fit results for all peaks.
+        peak_matches (list of list of dict): List containing matched spectral lines for each peak.
+        tolerance (float): Tolerance in Angstroms for matching spectral lines.
+
+    Returns:
+        tuple: (flux_ratio, flux_ratio_err) or (np.nan, np.nan) if calculation is not possible.
+    """
+    flux_6300 = None
+    flux_6300_err = None
+    flux_6363 = None
+    flux_6363_err = None
+
+    for fit, matches in zip(fit_results, peak_matches):
+        if not fit['success']:
+            continue
+
+        for match in matches:
+            line_name = match['Line']
+            if line_name == "[O I]6300":
+                flux_6300 = fit['flux']
+                flux_6300_err = fit['flux_err']
+            elif line_name == "[O I]6363":
+                flux_6363 = fit['flux']
+                flux_6363_err = fit['flux_err']
+
+    if flux_6300 is not None and flux_6363 is not None:
+        if flux_6363 == 0:
+            print("DEBUG: [O I]6363 flux is zero. Cannot compute flux ratio.")
+            return np.nan, np.nan
+
+        ratio, ratio_err = compute_flux_ratio(flux_6300, flux_6300_err, flux_6363, flux_6363_err)
+        print(f"DEBUG: Flux ratio [O I]6300/[O I]6363 = {ratio:.4f} ± {ratio_err:.4f}")
+        return ratio, ratio_err
+    else:
+        print("DEBUG: Required [O I] lines not detected or fit failed. Flux ratio cannot be calculated.")
+        return np.nan, np.nan
+
+def compute_flux_ratio_nii(fit_results, peak_matches, tolerance=7.0):
+    """
+    Computes the flux ratio [NII]6548/[NII]6583 and its uncertainty.
+
+    Parameters:
+        fit_results (list of dict): List of Gaussian fit results for all peaks.
+        peak_matches (list of list of dict): List containing matched spectral lines for each peak.
+        tolerance (float): Tolerance in Angstroms for matching spectral lines.
+
+    Returns:
+        tuple: (flux_ratio, flux_ratio_err) or (np.nan, np.nan) if calculation is not possible.
+    """
+    flux_6548 = None
+    flux_6548_err = None
+    flux_6583 = None
+    flux_6583_err = None
+
+    for fit, matches in zip(fit_results, peak_matches):
+        if not fit['success']:
+            continue
+
+        for match in matches:
+            line_name = match['Line']
+            if line_name == "[NII]6548":
+                flux_6548 = fit['flux']
+                flux_6548_err = fit['flux_err']
+            elif line_name == "[NII]6583":
+                flux_6583 = fit['flux']
+                flux_6583_err = fit['flux_err']
+
+    if flux_6548 is not None and flux_6583 is not None:
+        if flux_6583 == 0:
+            print("DEBUG: [NII]6583 flux is zero. Cannot compute flux ratio.")
+            return np.nan, np.nan
+
+        ratio, ratio_err = compute_flux_ratio(flux_6548, flux_6548_err, flux_6583, flux_6583_err)
+        print(f"DEBUG: Flux ratio [NII]6548/[NII]6583 = {ratio:.4f} ± {ratio_err:.4f}")
+        return ratio, ratio_err
+    else:
+        print("DEBUG: Required [NII] lines not detected or fit failed. Flux ratio cannot be calculated.")
+        return np.nan, np.nan
 
 def plot_zoomed_peaks(wavelength, intensity, cluster_data_list, output_file, title=None):
     """
@@ -740,8 +903,6 @@ def plot_zoomed_peaks(wavelength, intensity, cluster_data_list, output_file, tit
         output_file (str): Path to save the plot.
         title (str, optional): Title of the plot.
     """
-    import matplotlib.pyplot as plt
-
     num_clusters = len(cluster_data_list)
     if num_clusters == 0:
         print("No clusters to plot zoomed-in fits.")
@@ -810,6 +971,10 @@ def plot_zoomed_peaks(wavelength, intensity, cluster_data_list, output_file, tit
         ax.legend()
         ax.grid(True)
 
+
+    if title:
+        plt.suptitle(title, fontsize=16)
+        
     if title:
         plt.suptitle(title, fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to make room for suptitle
@@ -839,8 +1004,14 @@ def main():
                         help='Maximum distance between peaks to be considered in the same cluster (default: 50)')
     parser.add_argument('--save_format', type=str, choices=['png', 'pdf'], default='png',
                         help='Format to save plots (default: png)')
+    parser.add_argument('--target_name', type=str, default='M81',
+                        help='Name of the target object (optional, if not in header)')
+    parser.add_argument('--obs_date', type=str, default="2024-12-04T22:15:30",
+                        help='Hardcoded observation date in ISO format (e.g., "2024-12-04T22:15:30"). Overrides header date if provided.')
     args = parser.parse_args()
-
+    
+    # Extract the obs_date argument
+    obs_date = args.obs_date
     input_dir = args.input_dir
     output_dir = args.output_dir
     calibration_file = args.calibration_file
@@ -849,6 +1020,7 @@ def main():
     prominence = args.prominence
     cluster_distance = args.cluster_distance
     save_format = args.save_format
+    target_name = args.target_name
 
     # Ensure output directory exists
     ensure_directory(output_dir)
@@ -910,6 +1082,7 @@ def main():
                     if fit['success']:
                         peak_wavelength = fit['mean']
                         matches = match_spectral_lines(peak_wavelength, SPECTRAL_LINES, tolerance=7.0)
+                        fit['spectral_lines'] = matches  # Add matches to fit dictionary
                         cluster_peak_matches.append(matches)
                     else:
                         cluster_peak_matches.append([])
@@ -925,7 +1098,7 @@ def main():
                 # Collect all peak indices and fits for further processing (if needed)
                 for fit in fits:
                     peak_matches.append(fit['spectral_lines'] if 'spectral_lines' in fit else [])
-            
+
             # Flatten all Gaussian fits and peak matches
             all_gaussian_fits = []
             all_peak_indices = []
@@ -941,6 +1114,23 @@ def main():
                 all_peak_indices.extend(cluster_indices)
                 all_fitting_windows.extend([cluster_data['window']] * len(cluster_indices))
                 peak_matches_flat.extend(cluster_peak_matches)
+
+            # Compute barycentric correction
+            vcorr = compute_barycentric_correction(header, target_name=target_name, default_obs_date=obs_date)
+
+            # Identify Halpha flux for flux ratios (if needed)
+            flux_Halpha = None
+            flux_Halpha_err = None
+            for fit, matches in zip(all_gaussian_fits, peak_matches_flat):
+                if not fit['success']:
+                    continue
+                for match in matches:
+                    if match['Line'] == 'Hα':
+                        flux_Halpha = fit['flux']
+                        flux_Halpha_err = fit['flux_err']
+                        break
+                if flux_Halpha is not None:
+                    break  # Exit once Hα is found
 
             # Plotting
             base_name = os.path.splitext(os.path.basename(fits_file))[0]
@@ -981,15 +1171,22 @@ def main():
                     }
                     peak_details.append(peak_info)
 
-            # Calculate electron density if possible
-            electron_density, electron_density_err = calculate_electron_density(all_gaussian_fits, peak_matches_flat)
+            # Calculate electron densities and flux ratios
+            electron_density_sii, electron_density_sii_err = calculate_electron_density_sii(all_gaussian_fits, peak_matches_flat)
+            flux_ratio_oi, flux_ratio_oi_err = compute_flux_ratio_oi(all_gaussian_fits, peak_matches_flat)
+            flux_ratio_nii, flux_ratio_nii_err = compute_flux_ratio_nii(all_gaussian_fits, peak_matches_flat)
 
             summary.append({
                 'file': os.path.basename(fits_file),
                 'num_peaks': num_peaks,
                 'peaks': peak_details,
-                'electron_density': electron_density,
-                'electron_density_err': electron_density_err
+                'electron_density_sii': electron_density_sii,
+                'electron_density_sii_err': electron_density_sii_err,
+                'flux_ratio_oi': flux_ratio_oi,
+                'flux_ratio_oi_err': flux_ratio_oi_err,
+                'flux_ratio_nii': flux_ratio_nii,
+                'flux_ratio_nii_err': flux_ratio_nii_err,
+                'vcorr': vcorr
             })
 
         except Exception as e:
@@ -1003,28 +1200,26 @@ def main():
             fieldnames = [
                 'File',
                 'Number of Peaks',
-                'Electron Density (cm^-3)',
-                'Electron Density Error',
+                'Electron Density [SII] (cm^-3)',
+                'Electron Density Error [SII]',
+                'Flux Ratio [O I]6300/[O I]6363',
+                'Flux Ratio Error [O I]6300/[O I]6363',
+                'Flux Ratio [NII]6548/[NII]6583',
+                'Flux Ratio Error [NII]6548/[NII]6583',
+                'Barycentric Correction (km/s)',
                 'Peak Index',
-                'Background',
-                'Background Error',
-                'Amplitude',
-                'Amplitude Error',
-                'Mean (Å)',
-                'Mean Error (Å)',
-                'Sigma (Å)',
-                'Sigma Error (Å)',
-                'Flux (cm^-1)',
-                'Flux Error (cm^-1)',
-                'Window (pixels)',
-                'Fit Success',
+                'Rest Wavelength (λ₀) (Å)',
+                'Observed Wavelength (λ_obs) (Å)',
+                'Observed Wavelength Error (Å)',
+                'Observed Velocity (v_obs) (km/s)',
+                'Velocity Error (δV_obs) (km/s)',
+                'Corrected Velocity (v_corr) (km/s)',
+                'FWHM (Å)',
+                'FWHM Error (Å)',
+                'Flux',
+                'Flux Error',
                 'Spectral Line',
-                'Line Wavelength (Å)',
-                'Delta (Å)',
-                'z',
-                'z Error',
-                'v (km/s)',
-                'v Error (km/s)'
+                'Fit Success'
             ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
@@ -1032,34 +1227,37 @@ def main():
             for entry in summary:
                 file_name = entry['file']
                 num_peaks = entry['num_peaks']
-                electron_density = entry['electron_density']
-                electron_density_err = entry['electron_density_err']
+                electron_density_sii = entry['electron_density_sii']
+                electron_density_sii_err = entry['electron_density_sii_err']
+                flux_ratio_oi = entry['flux_ratio_oi']
+                flux_ratio_oi_err = entry['flux_ratio_oi_err']
+                flux_ratio_nii = entry['flux_ratio_nii']
+                flux_ratio_nii_err = entry['flux_ratio_nii_err']
+                vcorr = entry['vcorr']
                 for peak in entry['peaks']:
                     row = {
                         'File': file_name,
                         'Number of Peaks': num_peaks,
-                        'Electron Density (cm^-3)': f"{electron_density:.2e}" if not np.isnan(electron_density) else "N/A",
-                        'Electron Density Error': f"{electron_density_err:.2e}" if not np.isnan(electron_density_err) else "N/A",
+                        'Electron Density [SII] (cm^-3)': f"{electron_density_sii:.2e}" if not np.isnan(electron_density_sii) else "N/A",
+                        'Electron Density Error [SII]': f"{electron_density_sii_err:.2e}" if not np.isnan(electron_density_sii_err) else "N/A",
+                        'Flux Ratio [O I]6300/[O I]6363': f"{flux_ratio_oi:.4f}" if not np.isnan(flux_ratio_oi) else "N/A",
+                        'Flux Ratio Error [O I]6300/[O I]6363': f"{flux_ratio_oi_err:.4f}" if not np.isnan(flux_ratio_oi_err) else "N/A",
+                        'Flux Ratio [NII]6548/[NII]6583': f"{flux_ratio_nii:.4f}" if not np.isnan(flux_ratio_nii) else "N/A",
+                        'Flux Ratio Error [NII]6548/[NII]6583': f"{flux_ratio_nii_err:.4f}" if not np.isnan(flux_ratio_nii_err) else "N/A",
+                        'Barycentric Correction (km/s)': f"{vcorr:.2f}",
                         'Peak Index': peak['peak_index'],
-                        'Background': f"{peak['background']:.2f}" if not np.isnan(peak['background']) else "N/A",
-                        'Background Error': f"{peak['background_err']:.2f}" if not np.isnan(peak['background_err']) else "N/A",
-                        'Amplitude': f"{peak['amplitude']:.2f}" if not np.isnan(peak['amplitude']) else "N/A",
-                        'Amplitude Error': f"{peak['amplitude_err']:.2f}" if not np.isnan(peak['amplitude_err']) else "N/A",
-                        'Mean (Å)': f"{peak['mean']:.2f}" if not np.isnan(peak['mean']) else "N/A",
-                        'Mean Error (Å)': f"{peak['mean_err']:.2f}" if not np.isnan(peak['mean_err']) else "N/A",
-                        'Sigma (Å)': f"{peak['sigma']:.2f}" if not np.isnan(peak['sigma']) else "N/A",
-                        'Sigma Error (Å)': f"{peak['sigma_err']:.2f}" if not np.isnan(peak['sigma_err']) else "N/A",
-                        'Flux (cm^-1)': f"{peak['flux']:.2e}" if not np.isnan(peak['flux']) else "N/A",
-                        'Flux Error (cm^-1)': f"{peak['flux_err']:.2e}" if not np.isnan(peak['flux_err']) else "N/A",
-                        'Window (pixels)': peak['window'],
-                        'Fit Success': "Yes" if peak['fit_success'] else "No",
+                        'Rest Wavelength (λ₀) (Å)': "",
+                        'Observed Wavelength (λ_obs) (Å)': f"{peak['mean']:.2f}" if not np.isnan(peak['mean']) else "N/A",
+                        'Observed Wavelength Error (Å)': f"{peak['mean_err']:.2f}" if not np.isnan(peak['mean_err']) else "N/A",
+                        'Observed Velocity (v_obs) (km/s)': "",
+                        'Velocity Error (δV_obs) (km/s)': "",
+                        'Corrected Velocity (v_corr) (km/s)': "",
+                        'FWHM (Å)': "",
+                        'FWHM Error (Å)': "",
+                        'Flux': f"{peak['flux']:.2e}" if not np.isnan(peak['flux']) else "N/A",
+                        'Flux Error': f"{peak['flux_err']:.2e}" if not np.isnan(peak['flux_err']) else "N/A",
                         'Spectral Line': "",
-                        'Line Wavelength (Å)': "",
-                        'Delta (Å)': "",
-                        'z': "",
-                        'z Error': "",
-                        'v (km/s)': "",
-                        'v Error (km/s)': ""
+                        'Fit Success': "Yes" if peak['fit_success'] else "No"
                     }
 
                     if peak['spectral_lines']:
@@ -1069,23 +1267,24 @@ def main():
                         line_wavelength = best_match['Wavelength']
                         delta = best_match['Delta']
                         z, z_err = compute_redshift(peak['mean'], line_wavelength, observed_wavelength_err=peak['mean_err'])
-                        v, v_err = compute_velocity(z, z_err=z_err)
+                        v_obs, v_err = compute_velocity(z, z_err=z_err)
+                        v_corr_corrected = v_obs + vcorr
+
+                        # Compute FWHM
+                        fwhm, fwhm_err = compute_fwhm(peak['sigma'], peak['sigma_err'])
+
+                        # Compute Flux Ratios for [O I] and [NII] are already computed outside
 
                         row['Spectral Line'] = line_name
-                        row['Line Wavelength (Å)'] = f"{line_wavelength:.2f}"
-                        row['Delta (Å)'] = f"{delta:.2f}"
-                        row['z'] = f"{z:.6f}"
-                        row['z Error'] = f"{z_err:.6f}" if z_err is not None else "N/A"
-                        row['v (km/s)'] = f"{v:.2f}"
-                        row['v Error (km/s)'] = f"{v_err:.2f}" if v_err is not None else "N/A"
+                        row['Rest Wavelength (λ₀) (Å)'] = f"{line_wavelength:.2f}"
+                        row['Observed Velocity (v_obs) (km/s)'] = f"{v_obs:.2f}"
+                        row['Velocity Error (δV_obs) (km/s)'] = f"{v_err:.2f}" if v_err is not None else "N/A"
+                        row['Corrected Velocity (v_corr) (km/s)'] = f"{v_corr_corrected:.2f}"
+                        row['FWHM (Å)'] = f"{fwhm:.2f}"
+                        row['FWHM Error (Å)'] = f"{fwhm_err:.2f}" if fwhm_err is not None else "N/A"
+
                     else:
                         row['Spectral Line'] = "None"
-                        row['Line Wavelength (Å)'] = "None"
-                        row['Delta (Å)'] = "None"
-                        row['z'] = "None"
-                        row['z Error'] = "None"
-                        row['v (km/s)'] = "None"
-                        row['v Error (km/s)'] = "None"
 
                     writer.writerow(row)
         print(f"Summary of peak detections, Gaussian fits, fluxes, and electron densities saved to {summary_file}")
