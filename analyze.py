@@ -21,13 +21,13 @@ the script computes the electron density based on their flux ratio and includes
 this information in the summary.
 
 For each plot, the script also generates an additional file containing subplots
-zoomed in on each fitted line to visually inspect the quality of the fit.
+zoomed in on each fitted line group to visually inspect the quality of the fit.
 
 Usage:
     python analyze_stacked_spectra.py [--input_dir INPUT_DIR] [--output_dir OUTPUT_DIR]
                                      [--calibration_file CALIBRATION_FILE]
                                      [--height_sigma HEIGHT_SIGMA] [--distance DISTANCE]
-                                     [--prominence PROMINENCE] [--fitting_window_factor FITTING_WINDOW_FACTOR]
+                                     [--prominence PROMINENCE] [--cluster_distance CLUSTER_DISTANCE]
                                      [--save_format SAVE_FORMAT]
 
 Dependencies:
@@ -98,7 +98,7 @@ SPECTRAL_LINES = [
     {"Line": "He I", "Wavelength_air": 6678.152, "Wavelength_vacuum": 6679.996, "Notes": ""},
     {"Line": "[SII]6717", "Wavelength_air": 6716.47, "Wavelength_vacuum": 6718.32, "Notes": ""},
     {"Line": "[SII]6731", "Wavelength_air": 6730.85, "Wavelength_vacuum": 6732.71, "Notes": ""},
-    {"Line": "[S III]", "Wavelength_air": 6312.06, "Wavelength_vacuum": 6313.81, "Notes": "Use with [SIII]9068 as T diagnostic"},
+    {"Line": "[SIII]", "Wavelength_air": 6312.06, "Wavelength_vacuum": 6313.81, "Notes": "Use with [SIII]9068 as T diagnostic"},
     {"Line": "[O I]5577", "Wavelength_air": 5577.3387, "Wavelength_vacuum": 5578.8874, "Notes": "Strong sky line"},
     {"Line": "[ArIII]", "Wavelength_air": 7135.8, "Wavelength_vacuum": 7137.8, "Notes": ""},
     {"Line": "[ArIII]", "Wavelength_air": 7751.1, "Wavelength_vacuum": 7753.2, "Notes": ""},
@@ -220,87 +220,6 @@ def gaussian_plus_bg(x, bg, amp, cen, wid):
     """
     return bg + amp * np.exp(-0.5 * ((x - cen) / wid) ** 2)
 
-def fit_gaussian_plus_bg(wavelength, intensity, peak_idx, window):
-    """
-    Fits a Gaussian with a constant background to the data around a peak.
-
-    Parameters:
-        wavelength (np.ndarray): Wavelength array.
-        intensity (np.ndarray): Intensity array.
-        peak_idx (int): Index of the peak.
-        window (int): Number of pixels on each side of the peak to include in the fit.
-
-    Returns:
-        dict: Fit parameters (background, amplitude, mean, sigma, flux) and fit success status.
-    """
-    # Define the fitting window
-    left = max(peak_idx - window, 0)
-    right = min(peak_idx + window + 1, len(intensity))
-    x_data = wavelength[left:right]
-    y_data = intensity[left:right]
-
-    # Initial guesses
-    bg_guess = np.median(intensity)
-    amplitude_guess = intensity[peak_idx] - bg_guess
-    mean_guess = wavelength[peak_idx]
-    if len(x_data) > 1:
-        delta_wavelength = wavelength[1] - wavelength[0]
-    else:
-        delta_wavelength = 1  # Prevent division by zero
-    sigma_guess = (delta_wavelength * window) / 2.355  # Approximate
-
-    # Initial parameter list: [bg, amp, mean, sigma]
-    initial_params = [bg_guess, amplitude_guess, mean_guess, sigma_guess]
-
-    try:
-        popt, pcov = curve_fit(gaussian_plus_bg, x_data, y_data, p0=initial_params)
-        fit_success = True
-
-        # Compute uncertainties from covariance matrix
-        perr = np.sqrt(np.diag(pcov))
-    except (RuntimeError, ValueError):
-        popt = [np.nan, np.nan, np.nan, np.nan]
-        perr = [np.nan, np.nan, np.nan, np.nan]
-        pcov = None
-        fit_success = False
-
-    # Calculate flux and its uncertainty if fit is successful
-    if fit_success:
-        bg, amp, mean, sigma = popt
-        bg_err, amp_err, mean_err, sigma_err = perr
-
-        flux = amp * sigma * np.sqrt(2 * np.pi)
-
-        # Compute uncertainty in flux, including covariance
-        if pcov is not None and not np.isnan(pcov[1,3]):
-            cov_amp_sigma = pcov[1,3]
-            flux_var = (sigma * np.sqrt(2 * np.pi))**2 * amp_err**2 + \
-                       (amp * np.sqrt(2 * np.pi))**2 * sigma_err**2 + \
-                       2 * (sigma * np.sqrt(2 * np.pi)) * (amp * np.sqrt(2 * np.pi)) * cov_amp_sigma
-            flux_err = np.sqrt(abs(flux_var))  # Ensure flux_var is positive
-        else:
-            flux_err = np.nan
-    else:
-        flux = np.nan
-        flux_err = np.nan
-        bg_err, amp_err, mean_err, sigma_err = [np.nan]*4
-
-    return {
-        'background': popt[0],
-        'amplitude': popt[1],
-        'mean': popt[2],
-        'sigma': popt[3],
-        'flux': flux,
-        'background_err': bg_err,
-        'amplitude_err': amp_err,
-        'mean_err': mean_err,
-        'sigma_err': sigma_err,
-        'flux_err': flux_err,
-        'success': fit_success,
-        'x_fit': x_data,
-        'y_fit': gaussian_plus_bg(x_data, *popt) if fit_success else None
-    }
-
 def multi_gaussian_plus_bg(x, bg, *params):
     """
     Sum of multiple Gaussians with a constant background.
@@ -321,16 +240,32 @@ def multi_gaussian_plus_bg(x, bg, *params):
     return y
 
 def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
+    from scipy.optimize import curve_fit
+    import numpy as np
+    import pyneb as pn
+
     """
-    Fits one or multiple Gaussians with a constant background to the data around one or more peaks.
+    Fits multiple Gaussians with a constant background to the data around a group of peaks.
+
     Parameters:
         wavelength (np.ndarray): Wavelength array.
         intensity (np.ndarray): Intensity array.
         peak_indices (list): Indices of the peaks in the cluster.
         window (int): Number of pixels on each side of the cluster to include in the fit.
+
     Returns:
         list of dict: Fit parameters for each peak and fit success status.
     """
+    def multi_gaussian_plus_bg(x, bg, *params):
+        y = bg
+        num_gaussians = len(params) // 3
+        for i in range(num_gaussians):
+            amp = params[3 * i]
+            cen = params[3 * i + 1]
+            wid = params[3 * i + 2]
+            y += amp * np.exp(-0.5 * ((x - cen) / wid) ** 2)
+        return y
+
     # Define the fitting window
     left = max(min(peak_indices) - window, 0)
     right = min(max(peak_indices) + window + 1, len(intensity))
@@ -343,16 +278,25 @@ def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
     bg_guess = np.median(intensity)
     initial_params = [bg_guess]
 
+    # Define bounds
+    lower_bounds = [0]  # Background must be >= 0
+    upper_bounds = [np.inf]
+
     for peak_idx in peak_indices:
         amplitude_guess = intensity[peak_idx] - bg_guess
+        amplitude_guess = max(amplitude_guess, 0)  # Amplitude should be positive
         mean_guess = wavelength[peak_idx]
-        if len(x_data) > 1:
+        if len(wavelength) > 1:
             delta_wavelength = wavelength[1] - wavelength[0]
         else:
             delta_wavelength = 1  # Prevent division by zero
-        sigma_guess = delta_wavelength * window / (2.355 * num_peaks)  # Adjust sigma_guess based on window and number of peaks
+        sigma_guess = (delta_wavelength * window) / 2.355  # Approximate
 
         initial_params.extend([amplitude_guess, mean_guess, sigma_guess])
+
+        # Define bounds for amplitude, center, and sigma
+        lower_bounds.extend([0, mean_guess - window * (wavelength[1] - wavelength[0]), 0.5])
+        upper_bounds.extend([np.inf, mean_guess + window * (wavelength[1] - wavelength[0]), 10.0])
 
     try:
         popt, pcov = curve_fit(
@@ -360,6 +304,7 @@ def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
             x_data,
             y_data,
             p0=initial_params,
+            bounds=(lower_bounds, upper_bounds),
             maxfev=10000
         )
         fit_success = True
@@ -387,8 +332,8 @@ def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
             cen_err = perr[1 + 3 * i + 1]
             wid_err = perr[1 + 3 * i + 2]
             flux = amp * wid * np.sqrt(2 * np.pi)
+
             # Compute uncertainty in flux, including covariance
-            # Note: Extract covariances from pcov
             if pcov is not None:
                 idx_amp = 1 + 3 * i
                 idx_wid = idx_amp + 2
@@ -396,9 +341,20 @@ def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
                 flux_var = (wid * np.sqrt(2 * np.pi))**2 * amp_err**2 + \
                            (amp * np.sqrt(2 * np.pi))**2 * wid_err**2 + \
                            2 * (wid * np.sqrt(2 * np.pi)) * (amp * np.sqrt(2 * np.pi)) * cov_amp_wid
-                flux_err = np.sqrt(abs(flux_var))
+                flux_err = np.sqrt(abs(flux_var)) if flux_var > 0 else np.nan
             else:
                 flux_err = np.nan
+
+            # Calculate redshift and velocity if spectral lines are matched
+            matches = match_spectral_lines(cen, SPECTRAL_LINES, tolerance=7.0)
+            if matches:
+                # Choose the best match based on smallest delta
+                best_match = min(matches, key=lambda m: abs(m['Delta']))
+                rest_wavelength = best_match['Wavelength']
+                z, z_err = compute_redshift(cen, rest_wavelength, observed_wavelength_err=cen_err)
+                v, v_err = compute_velocity(z, z_err=z_err)
+            else:
+                z, z_err, v, v_err = (np.nan, np.nan, np.nan, np.nan)
 
             fits.append({
                 'background': bg,
@@ -411,9 +367,13 @@ def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
                 'sigma_err': wid_err,
                 'flux': flux,
                 'flux_err': flux_err,
+                'z': z,
+                'z_err': z_err,
+                'v': v,
+                'v_err': v_err,
                 'success': True,
                 'x_fit': x_data,
-                'y_fit': None  # We'll compute individual y_fit below
+                'y_fit': multi_gaussian_plus_bg(x_data, bg, *popt[1:])
             })
     else:
         # Create placeholder fits with failure status
@@ -429,29 +389,27 @@ def fit_gaussian_plus_bg(wavelength, intensity, peak_indices, window):
                 'sigma_err': np.nan,
                 'flux': np.nan,
                 'flux_err': np.nan,
+                'z': np.nan,
+                'z_err': np.nan,
+                'v': np.nan,
+                'v_err': np.nan,
                 'success': False,
                 'x_fit': None,
                 'y_fit': None
             })
 
-    # Compute y_fit for each individual Gaussian
-    if fit_success:
-        for i, fit in enumerate(fits):
-            amp = fit['amplitude']
-            cen = fit['mean']
-            wid = fit['sigma']
-            fit['x_fit'] = x_data
-            fit['y_fit'] = fit['background'] + amp * np.exp(-0.5 * ((x_data - cen) / wid) ** 2)
-
     return fits
-
 
 def group_peaks(peaks, cluster_distance):
     """
     Groups peaks that are close to each other into clusters.
+    Only clusters with three or more peaks within 'cluster_distance' are grouped.
+    Clusters with one or two peaks are treated as separate individual clusters.
+
     Parameters:
-        peaks (np.ndarray): Array of peak indices.
-        cluster_distance (float): Maximum distance between peaks to be considered in the same cluster.
+        peaks (np.ndarray): Array of peak indices sorted in ascending order.
+        cluster_distance (float): Maximum distance between consecutive peaks to be considered in the same cluster.
+
     Returns:
         list of list: List of clusters, each cluster is a list of peak indices.
     """
@@ -462,11 +420,24 @@ def group_peaks(peaks, cluster_distance):
         if peaks[i] - peaks[i - 1] <= cluster_distance:
             current_cluster.append(peaks[i])
         else:
-            clusters.append(current_cluster)
+            # Check the size of the current cluster
+            if len(current_cluster) >= 3:
+                clusters.append(current_cluster)
+            else:
+                # If the cluster has one or two peaks, add each peak as a separate cluster
+                for peak in current_cluster:
+                    clusters.append([peak])
+            # Start a new cluster
             current_cluster = [peaks[i]]
-    clusters.append(current_cluster)
-    return clusters
 
+    # Handle the last cluster
+    if len(current_cluster) >= 3:
+        clusters.append(current_cluster)
+    else:
+        for peak in current_cluster:
+            clusters.append([peak])
+
+    return clusters
 
 def match_spectral_lines(peak_wavelength, spectral_lines, tolerance=7.0):
     """
@@ -542,7 +513,6 @@ def compute_velocity(z, z_err=None):
     else:
         return v
 
-
 def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, title=None, peak_matches=None):
     """
     Plots the spectrum with identified peaks and their Gaussian fits, including individually plotted
@@ -602,10 +572,6 @@ def plot_spectrum(wavelength, intensity, peaks, gaussian_fits, output_file, titl
                     # Define an offset for the label to appear above the peak (5% of y-axis range)
                     offset = 0.05 * y_range
                     label_y = peak_intensity + offset
-
-                    # Compute redshift and velocity
-                    z, z_err = compute_redshift(peak_wavelength, line_wavelength, observed_wavelength_err=fit['mean_err'])
-                    v, v_err = compute_velocity(z, z_err=z_err)
 
                     labels.append({
                         'x': peak_wavelength,
@@ -674,24 +640,23 @@ def calculate_electron_density(fit_results, peak_matches):
         peak_matches (list of list of dict): List containing matched spectral lines for each peak.
 
     Returns:
-        float: Electron density in cm^-3, or np.nan if calculation is not possible.
+        tuple: (float, float) Electron density in cm^-3 and its uncertainty, or (np.nan, np.nan) if calculation is not possible.
     """
     try:
         import pyneb as pn
     except ImportError:
         print("PyNeb is not installed. Please install it using 'pip install pyneb'.")
-        return np.nan
+        return np.nan, np.nan
 
     flux_6717 = None
     flux_6717_err = None
     flux_6731 = None
     flux_6731_err = None
 
-    for idx, fit in enumerate(fit_results):
+    for fit, matches in zip(fit_results, peak_matches):
         if not fit['success']:
             continue
 
-        matches = peak_matches[idx]
         for match in matches:
             line_name = match['Line']
             if line_name == "[SII]6717":
@@ -717,11 +682,14 @@ def calculate_electron_density(fit_results, peak_matches):
     if flux_6717 is not None and flux_6731 is not None:
         if flux_6731 == 0:
             print("DEBUG: [SII]6731 flux is zero. Cannot compute flux ratio.")
-            return np.nan
+            return np.nan, np.nan
 
         ratio = flux_6717 / flux_6731
         # Propagate uncertainty in ratio
-        ratio_err = ratio * np.sqrt((flux_6717_err / flux_6717) ** 2 + (flux_6731_err / flux_6731) ** 2)
+        if flux_6717_err is not None and flux_6731_err is not None:
+            ratio_err = ratio * np.sqrt((flux_6717_err / flux_6717) ** 2 + (flux_6731_err / flux_6731) ** 2)
+        else:
+            ratio_err = np.nan
         print(f"DEBUG: Flux ratio [SII]6717/[SII]6731 = {ratio:.4f} ± {ratio_err:.4f}")
 
         # Use PyNeb to calculate electron density
@@ -737,9 +705,14 @@ def calculate_electron_density(fit_results, peak_matches):
             # Calculate electron density using the ratio
             n_e = SII.getTemDen(ratio, tem=T_e, wave1=6716.44, wave2=6730.82)
             # Calculate error in electron density (approximate method)
-            n_e_plus = SII.getTemDen(ratio + ratio_err, tem=T_e, wave1=6716.44, wave2=6730.82)
-            n_e_minus = SII.getTemDen(ratio - ratio_err, tem=T_e, wave1=6716.44, wave2=6730.82)
-            n_e_err = (n_e_plus - n_e_minus) / 2
+            if not np.isnan(ratio_err):
+                ratio_plus = ratio + ratio_err
+                ratio_minus = ratio - ratio_err
+                n_e_plus = SII.getTemDen(ratio_plus, tem=T_e, wave1=6716.44, wave2=6730.82)
+                n_e_minus = SII.getTemDen(ratio_minus, tem=T_e, wave1=6716.44, wave2=6730.82)
+                n_e_err = (n_e_plus - n_e_minus) / 2
+            else:
+                n_e_err = np.nan
 
             print(f"DEBUG: Calculated electron density n_e = {n_e:.2e} ± {n_e_err:.2e} cm^-3 using PyNeb.")
             return n_e, n_e_err
@@ -755,70 +728,87 @@ def calculate_electron_density(fit_results, peak_matches):
 # Function to Plot Zoomed-In Peaks
 # ======================================================================
 
-def plot_zoomed_peaks(wavelength, intensity, peaks, gaussian_fits, output_file, fitting_windows, title=None, peak_matches=None):
+def plot_zoomed_peaks(wavelength, intensity, cluster_data_list, output_file, title=None):
     """
-    Creates a subplot for each fitted peak, zoomed in around the peak region,
-    and overlays the observed data with the Gaussian fit.
+    Creates a subplot for each cluster of peaks, zoomed in around the cluster region,
+    and overlays the observed data with the Gaussian fits.
 
     Parameters:
         wavelength (np.ndarray): Wavelength array.
         intensity (np.ndarray): Intensity array.
-        peaks (list): Indices of detected peaks.
-        gaussian_fits (list of dict): List containing Gaussian fit parameters for each peak.
+        cluster_data_list (list of dict): List containing data for each cluster.
         output_file (str): Path to save the plot.
-        fitting_windows (list of int): List of window sizes for each peak.
         title (str, optional): Title of the plot.
-        peak_matches (list of list of dict): List containing matched spectral lines for each peak.
     """
     import matplotlib.pyplot as plt
 
-    num_peaks = len(peaks)
-    if num_peaks == 0:
-        print("No peaks to plot zoomed-in fits.")
+    num_clusters = len(cluster_data_list)
+    if num_clusters == 0:
+        print("No clusters to plot zoomed-in fits.")
         return
 
     # Determine grid size for subplots
-    ncols = 3  # You can adjust this based on preference
-    nrows = (num_peaks + ncols - 1) // ncols  # Ceiling division
+    ncols = 3  # Adjust as needed
+    nrows = (num_clusters + ncols - 1) // ncols  # Ceiling division
 
     plt.figure(figsize=(5 * ncols, 4 * nrows))
-    for idx in range(num_peaks):
-        peak_idx = peaks[idx]
-        fit = gaussian_fits[idx]
-        window = fitting_windows[idx]
+    for idx, cluster_data in enumerate(cluster_data_list):
+        cluster_indices = cluster_data['cluster_indices']
+        fits = cluster_data['fits']
+        window = cluster_data['window']
+        cluster_peak_matches = cluster_data['peak_matches']
+
+        # For each cluster, plot one subplot
         ax = plt.subplot(nrows, ncols, idx + 1)
-        if fit['success']:
-            # Define the plotting window
-            left = max(peak_idx - window, 0)
-            right = min(peak_idx + window + 1, len(intensity))
-            x_data = wavelength[left:right]
-            y_data = intensity[left:right]
-            x_fit = fit['x_fit']
-            y_fit = fit['y_fit']
 
-            ax.plot(x_data, y_data, 'k-', label='Data')
-            ax.plot(x_fit, y_fit, 'r--', label='Gaussian Fit')
+        # Determine plotting window for the cluster
+        min_peak_idx = min(cluster_indices)
+        max_peak_idx = max(cluster_indices)
 
-            # Match spectral lines
-            matches = peak_matches[idx] if peak_matches is not None else []
+        # Convert indices to wavelengths for the plotting window
+        min_peak_wavelength = wavelength[min_peak_idx]
+        max_peak_wavelength = wavelength[max_peak_idx]
+
+        # Define the plotting window based on wavelengths
+        left = max(min_peak_wavelength - window * (wavelength[1] - wavelength[0]), wavelength[0])
+        right = min(max_peak_wavelength + window * (wavelength[1] - wavelength[0]), wavelength[-1])
+
+        # Select data within the plotting window
+        mask = (wavelength >= left) & (wavelength <= right)
+        x_data = wavelength[mask]
+        y_data = intensity[mask]
+
+        # Plot the data
+        ax.plot(x_data, y_data, 'k-', label='Data')
+
+        # Plot the Gaussian fits
+        for fit in fits:
+            if fit['success']:
+                x_fit = fit['x_fit']
+                y_fit = fit['y_fit']
+                ax.plot(x_fit, y_fit, 'r--', label='Gaussian Fit' if 'Gaussian Fit' not in ax.get_legend_handles_labels()[1] else "")
+            else:
+                pass  # Skip failed fits
+
+        # Title can be based on matched spectral lines
+        matches_in_cluster = []
+        for matches in cluster_peak_matches:
             if matches:
-                # Choose the best match based on the smallest delta
                 best_match = min(matches, key=lambda m: abs(m['Delta']))
                 line_name = best_match['Line']
-                ax.set_title(f"Peak {idx+1}: {line_name}")
-            else:
-                ax.set_title(f"Peak {idx+1}")
-
-            ax.set_xlabel('Wavelength (Å)')
-            ax.set_ylabel('Intensity')
-            ax.legend()
-            ax.grid(True)
+                matches_in_cluster.append(line_name)
+        if matches_in_cluster:
+            # Remove duplicates and join line names
+            matches_in_cluster = list(dict.fromkeys(matches_in_cluster))
+            cluster_title = f"Cluster {idx+1}: {', '.join(matches_in_cluster)}"
         else:
-            ax.set_title(f"Peak {idx+1}: Fit Failed")
-            ax.plot([], [])  # Empty plot
-            ax.set_xlabel('Wavelength (Å)')
-            ax.set_ylabel('Intensity')
-            ax.grid(True)
+            cluster_title = f"Cluster {idx+1}"
+
+        ax.set_title(cluster_title)
+        ax.set_xlabel('Wavelength (Å)')
+        ax.set_ylabel('Intensity')
+        ax.legend()
+        ax.grid(True)
 
     if title:
         plt.suptitle(title, fontsize=16)
@@ -846,7 +836,7 @@ def main():
     parser.add_argument('--prominence', type=float, default=180,
                         help='Minimum prominence of peaks (default: 180)')
     parser.add_argument('--cluster_distance', type=float, default=50,
-                        help='Maximum distance between peaks to be considered in the same cluster (default: 5)')
+                        help='Maximum distance between peaks to be considered in the same cluster (default: 50)')
     parser.add_argument('--save_format', type=str, choices=['png', 'pdf'], default='png',
                         help='Format to save plots (default: png)')
     args = parser.parse_args()
@@ -902,9 +892,7 @@ def main():
             clusters = group_peaks(peaks, cluster_distance)
 
             # Prepare lists to collect all individual peak fits and indices
-            all_gaussian_fits = []
-            all_peak_indices = []
-            all_fitting_windows = []
+            cluster_data_list = []
             peak_matches = []
 
             for cluster in clusters:
@@ -912,67 +900,89 @@ def main():
                 cluster_widths = [widths[np.where(peaks == idx)[0][0]] for idx in cluster]
                 avg_width = np.mean(cluster_widths)
                 window = int(np.ceil(avg_width * 2.5))
+
                 # Fit the cluster with multiple Gaussians
                 fits = fit_gaussian_plus_bg(wavelength, data, cluster, window)
-                all_gaussian_fits.extend(fits)
-                all_peak_indices.extend(cluster)
-                all_fitting_windows.extend([window] * len(cluster))
-                for idx, fit in zip(cluster, fits):
-                    if fit['success']:
-                        print(f"  Peak at index {idx} in cluster fitted successfully:")
-                        print(f"    Background={fit['background']:.2f} ± {fit['background_err']:.2f}")
-                        print(f"    Amplitude={fit['amplitude']:.2f} ± {fit['amplitude_err']:.2f}")
-                        print(f"    Mean={fit['mean']:.2f} Å ± {fit['mean_err']:.2f} Å")
-                        print(f"    Sigma={fit['sigma']:.2f} Å ± {fit['sigma_err']:.2f} Å")
-                        print(f"    Flux={fit['flux']:.2e} cm^-1 ± {fit['flux_err']:.2e} cm^-1")
-                        print(f"    Window={window} pixels")
-                    else:
-                        print(f"  Peak at index {idx} in cluster fit failed.")
-                # Match spectral lines for each peak in the cluster
+
+                # Collect peak matches for the cluster
+                cluster_peak_matches = []
                 for fit in fits:
                     if fit['success']:
                         peak_wavelength = fit['mean']
                         matches = match_spectral_lines(peak_wavelength, SPECTRAL_LINES, tolerance=7.0)
-                        peak_matches.append(matches)
+                        cluster_peak_matches.append(matches)
                     else:
-                        peak_matches.append([])
+                        cluster_peak_matches.append([])
+
+                # Store cluster data
+                cluster_data_list.append({
+                    'cluster_indices': cluster,
+                    'fits': fits,
+                    'window': window,
+                    'peak_matches': cluster_peak_matches
+                })
+
+                # Collect all peak indices and fits for further processing (if needed)
+                for fit in fits:
+                    peak_matches.append(fit['spectral_lines'] if 'spectral_lines' in fit else [])
+            
+            # Flatten all Gaussian fits and peak matches
+            all_gaussian_fits = []
+            all_peak_indices = []
+            all_fitting_windows = []
+            peak_matches_flat = []
+
+            for cluster_data in cluster_data_list:
+                cluster_indices = cluster_data['cluster_indices']
+                fits = cluster_data['fits']
+                cluster_peak_matches = cluster_data['peak_matches']
+
+                all_gaussian_fits.extend(fits)
+                all_peak_indices.extend(cluster_indices)
+                all_fitting_windows.extend([cluster_data['window']] * len(cluster_indices))
+                peak_matches_flat.extend(cluster_peak_matches)
 
             # Plotting
             base_name = os.path.splitext(os.path.basename(fits_file))[0]
             plot_filename = os.path.join(output_dir, f"{base_name}_peaks.{save_format}")
             title = f"Spectrum with Detected Peaks: {base_name}"
-            plot_spectrum(wavelength, data, all_peak_indices, all_gaussian_fits, plot_filename, title=title, peak_matches=peak_matches)
+            plot_spectrum(wavelength, data, all_peak_indices, all_gaussian_fits, plot_filename, title=title, peak_matches=peak_matches_flat)
             print(f"Plot saved to {plot_filename}")
 
-            # Plot zoomed-in peaks
+            # Plot zoomed-in peaks for clusters
             zoomed_plot_filename = os.path.join(output_dir, f"{base_name}_zoomed_peaks.{save_format}")
             title_zoomed = f"Zoomed-in Fits for: {base_name}"
-            plot_zoomed_peaks(wavelength, data, all_peak_indices, all_gaussian_fits, zoomed_plot_filename, fitting_windows=all_fitting_windows, title=title_zoomed, peak_matches=peak_matches)
+            plot_zoomed_peaks(wavelength, data, cluster_data_list, zoomed_plot_filename, title=title_zoomed)
             print(f"Zoomed-in plot saved to {zoomed_plot_filename}")
 
             # Append to summary
             peak_details = []
-            for idx, fit in zip(all_peak_indices, all_gaussian_fits):
-                peak_info = {
-                    'peak_index': int(idx),
-                    'background': fit['background'] if fit['success'] else np.nan,
-                    'background_err': fit['background_err'] if fit['success'] else np.nan,
-                    'amplitude': fit['amplitude'] if fit['success'] else np.nan,
-                    'amplitude_err': fit['amplitude_err'] if fit['success'] else np.nan,
-                    'mean': fit['mean'] if fit['success'] else np.nan,
-                    'mean_err': fit['mean_err'] if fit['success'] else np.nan,
-                    'sigma': fit['sigma'] if fit['success'] else np.nan,
-                    'sigma_err': fit['sigma_err'] if fit['success'] else np.nan,
-                    'flux': fit['flux'] if fit['success'] else np.nan,
-                    'flux_err': fit['flux_err'] if fit['success'] else np.nan,
-                    'window': window,  # All peaks in the cluster have the same window
-                    'fit_success': fit['success'],
-                    'spectral_lines': peak_matches[all_peak_indices.index(idx)]  # Add matched spectral lines
-                }
-                peak_details.append(peak_info)
+            for cluster_data in cluster_data_list:
+                cluster_indices = cluster_data['cluster_indices']
+                fits = cluster_data['fits']
+                cluster_peak_matches = cluster_data['peak_matches']
+
+                for idx_in_cluster, (idx, fit) in enumerate(zip(cluster_indices, fits)):
+                    peak_info = {
+                        'peak_index': int(idx),
+                        'background': fit['background'] if fit['success'] else np.nan,
+                        'background_err': fit['background_err'] if fit['success'] else np.nan,
+                        'amplitude': fit['amplitude'] if fit['success'] else np.nan,
+                        'amplitude_err': fit['amplitude_err'] if fit['success'] else np.nan,
+                        'mean': fit['mean'] if fit['success'] else np.nan,
+                        'mean_err': fit['mean_err'] if fit['success'] else np.nan,
+                        'sigma': fit['sigma'] if fit['success'] else np.nan,
+                        'sigma_err': fit['sigma_err'] if fit['success'] else np.nan,
+                        'flux': fit['flux'] if fit['success'] else np.nan,
+                        'flux_err': fit['flux_err'] if fit['success'] else np.nan,
+                        'window': cluster_data['window'],  # All peaks in the cluster have the same window
+                        'fit_success': fit['success'],
+                        'spectral_lines': cluster_peak_matches[idx_in_cluster]  # Add matched spectral lines
+                    }
+                    peak_details.append(peak_info)
 
             # Calculate electron density if possible
-            electron_density, electron_density_err = calculate_electron_density(all_gaussian_fits, peak_matches)
+            electron_density, electron_density_err = calculate_electron_density(all_gaussian_fits, peak_matches_flat)
 
             summary.append({
                 'file': os.path.basename(fits_file),

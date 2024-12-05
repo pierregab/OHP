@@ -1,60 +1,60 @@
 File,Number of Peaks,Electron Density (cm^-3),Electron Density Error,Peak Index,Background,Background Error,Amplitude,Amplitude Error,Mean (Å),Mean Error (Å),Sigma (Å),Sigma Error (Å),Flux (cm^-1),Flux Error (cm^-1),Window (pixels),Fit Success,Spectral Line,Line Wavelength (Å),Delta (Å),z,z Error,v (km/s),v Error (km/s)
-SH-257-Star_stacked.fits,39,N/A,N/A,18,2856.84,inf,72.36,inf,6119.73,inf,0.05,inf,9.76e+00,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,41,2856.84,inf,89.86,inf,6130.12,inf,-0.00,inf,-1.06e+00,N/A,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,63,2856.84,inf,1413.31,inf,6140.07,inf,0.12,inf,4.24e+02,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,104,2856.84,inf,488.07,inf,6158.42,inf,0.11,inf,1.30e+02,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,164,2895.64,inf,37.89,inf,6182.88,inf,-0.04,inf,-4.02e+00,N/A,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,186,2895.64,inf,114.67,inf,6194.96,inf,-0.06,inf,-1.68e+01,N/A,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,227,2895.64,inf,167.83,inf,6214.43,inf,-0.12,inf,-4.89e+01,N/A,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,263,2895.64,inf,145.70,inf,6229.45,inf,0.38,inf,1.38e+02,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,279,2895.64,inf,129.50,inf,6236.75,inf,0.52,inf,1.68e+02,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,317,2895.64,inf,129.17,inf,6253.28,inf,-0.02,inf,-5.68e+00,N/A,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,331,2895.64,inf,64.05,inf,6260.59,inf,0.75,inf,1.20e+02,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,358,2895.64,inf,101.69,inf,6273.59,inf,-0.30,inf,-7.74e+01,N/A,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,427,2893.21,inf,-49.03,inf,6303.27,inf,-0.04,inf,5.32e+00,inf,6,Yes,[O I]6300,6300.30,2.97,0.000472,inf,141.39,inf
-SH-257-Star_stacked.fits,39,N/A,N/A,538,2915.48,inf,183.72,inf,6352.50,inf,0.00,inf,2.07e+00,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,570,2915.48,inf,87.44,inf,6366.14,inf,1.22,inf,2.68e+02,inf,6,Yes,[O I]6363,6363.78,2.36,0.000371,inf,111.17,inf
-SH-257-Star_stacked.fits,39,N/A,N/A,581,2915.48,inf,125.78,inf,6372.45,inf,0.93,inf,2.93e+02,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,697,-110762.70,514179056.53,113771.07,514179052.15,6423.30,0.85,255.69,577474.72,7.29e+07,4.94e+11,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,754,2968.94,6.60,437.47,2265671773977139456.00,6449.16,2719843.30,0.07,1541183688291837696.00,7.43e+01,1.69e+21,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,804,2968.94,6.60,500.37,81390425.51,6471.35,3578.19,0.11,4512.17,1.38e+02,1.68e+07,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,819,2968.94,6.60,344.83,37207733.98,6478.06,2862.61,0.11,3142.13,9.61e+01,7.65e+06,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,916,2868.97,5.69,106.08,14.67,6522.87,6.20,14.13,5.01,3.76e+03,1.50e+03,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,943,2868.97,5.69,354.58,1377616.85,6533.50,34.63,0.13,188.60,1.19e+02,2.96e+05,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,987,2868.97,5.69,532.72,1582839.98,6553.59,50.99,0.13,135.85,1.75e+02,3.39e+05,6,Yes,[NII]6549,6548.03,5.56,0.000849,0.007787,254.64,2334.55
-SH-257-Star_stacked.fits,39,N/A,N/A,1008,2868.97,5.69,521.18,79.86,6562.97,0.05,0.34,0.06,4.38e+02,6.41e+01,6,Yes,Hα,6562.79,0.18,0.000027,0.000008,8.08,2.41
-SH-257-Star_stacked.fits,39,N/A,N/A,1031,2868.97,5.69,279.72,452226.21,6572.91,74.81,-0.13,76.94,-9.10e+01,9.32e+04,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1055,2868.97,5.69,316.11,52.49,6583.59,0.12,0.65,0.13,5.16e+02,8.77e+01,6,Yes,[NII]6583,6583.41,0.18,0.000027,0.000019,8.24,5.67
-SH-257-Star_stacked.fits,39,N/A,N/A,1094,2868.97,5.69,199.26,100.53,6601.45,0.13,0.30,0.20,1.50e+02,6.28e+01,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1105,2868.97,5.69,131.19,67.83,6606.46,0.23,0.40,0.24,1.31e+02,6.83e+01,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1127,2868.97,5.69,177.95,248.72,6616.16,0.25,0.23,0.35,1.01e+02,5.01e+01,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1173,2868.97,5.69,541.11,64.11,6636.36,0.06,0.44,0.06,5.97e+02,7.17e+01,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1240,2788.24,8.39,83.94,21.98,6666.70,1.03,3.19,1.29,6.71e+02,2.45e+02,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1255,2788.24,8.39,653.97,44463725.63,6673.06,1119.33,0.11,2108.83,1.87e+02,9.27e+06,6,Yes,He I,6678.15,-5.09,-0.000762,0.167611,-228.44,50248.63
-SH-257-Star_stacked.fits,39,N/A,N/A,1300,2788.24,8.39,448.88,30116342.02,6693.56,1607.73,-0.11,2066.88,-1.27e+02,6.21e+06,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1352,2807.82,13.12,192.64,51.22,6716.70,0.11,0.37,0.11,1.77e+02,5.29e+01,6,Yes,[SII]6717,6716.47,0.23,0.000035,0.000017,10.45,5.07
-SH-257-Star_stacked.fits,39,N/A,N/A,1404,2668.21,inf,96.95,inf,6739.32,inf,1.24,inf,3.02e+02,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1425,2668.21,inf,572.61,inf,6750.39,inf,0.12,inf,1.70e+02,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1462,2668.21,inf,257.47,inf,6765.84,inf,0.04,inf,2.79e+01,inf,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1476,2668.21,inf,357.35,inf,6771.92,inf,-0.10,inf,-9.09e+01,N/A,6,Yes,None,None,None,None,None,None,None
-SH-257-Star_stacked.fits,39,N/A,N/A,1519,2668.21,inf,-11.31,inf,6790.78,inf,0.01,inf,-1.55e-01,N/A,6,Yes,None,None,None,None,None,None,None
-M81_arms_stacked.fits,9,N/A,N/A,76,1320.12,8.44,586.52,47.31,6145.79,0.03,0.21,0.02,3.15e+02,1.99e+01,4,Yes,None,None,None,None,None,None,None
-M81_arms_stacked.fits,9,N/A,N/A,331,1422.98,21.53,1286.02,309.65,6260.00,0.04,0.22,0.06,6.95e+02,4.67e+01,4,Yes,None,None,None,None,None,None,None
-M81_arms_stacked.fits,9,N/A,N/A,421,1415.89,7.52,399.89,22.45,6300.18,0.04,0.56,0.04,5.59e+02,3.78e+01,4,Yes,[O I]6300,6300.30,-0.12,-0.000020,0.000006,-5.89,1.67
-M81_arms_stacked.fits,9,N/A,N/A,563,1437.61,6.43,120.72,29.63,6363.92,0.16,0.56,0.16,1.68e+02,4.50e+01,4,Yes,[O I]6363,6363.78,0.15,0.000023,0.000024,6.91,7.33
-M81_arms_stacked.fits,9,N/A,N/A,586,1437.61,6.43,563.88,40.51,6374.01,0.05,0.20,0.03,2.78e+02,3.59e+01,4,Yes,None,None,None,None,None,None,None
-M81_arms_stacked.fits,9,N/A,N/A,1118,1437.13,9.57,303.26,73.27,6611.78,0.03,-0.26,0.08,-2.00e+02,2.96e+01,4,Yes,None,None,None,None,None,None,None
-M81_arms_stacked.fits,9,N/A,N/A,1383,1304.90,10.16,262.63,26.72,6730.49,0.05,-0.24,0.03,-1.59e+02,2.49e+01,4,Yes,[SII]6731,6730.85,-0.36,-0.000053,0.000007,-16.04,2.16
-M81_arms_stacked.fits,9,N/A,N/A,1469,1322.11,inf,126.63,inf,6768.81,inf,0.01,inf,3.51e+00,inf,4,Yes,None,None,None,None,None,None,None
-M81_arms_stacked.fits,9,N/A,N/A,1939,740.59,inf,1235.57,inf,6979.03,inf,-0.04,inf,-1.37e+02,N/A,4,Yes,None,None,None,None,None,None,None
-SH-257-H2-cloud_stacked.fits,4,N/A,N/A,802,1536.25,5.99,114.05,122.59,6470.53,0.29,0.19,0.22,5.51e+01,1.87e+01,9,Yes,None,None,None,None,None,None,None
-SH-257-H2-cloud_stacked.fits,4,N/A,N/A,1008,1496.41,4.66,703.70,27.90,6562.80,0.03,0.57,0.03,1.00e+03,4.19e+01,9,Yes,Hα,6562.79,0.01,0.000002,0.000004,0.50,1.18
-SH-257-H2-cloud_stacked.fits,4,N/A,N/A,1054,1496.41,4.66,270.64,31.49,6583.39,0.06,0.44,0.06,3.00e+02,3.64e+01,9,Yes,[NII]6583,6583.41,-0.02,-0.000003,0.000009,-0.79,2.70
-SH-257-H2-cloud_stacked.fits,4,N/A,N/A,1351,1383.05,7.12,188.00,23.29,6716.46,0.07,0.49,0.07,2.31e+02,3.35e+01,9,Yes,[SII]6717,6716.47,-0.01,-0.000001,0.000010,-0.34,3.05
-M81_stacked.fits,7,N/A,N/A,422,1755.05,10.81,390.87,32.46,6300.42,0.07,0.73,0.07,7.13e+02,7.11e+01,16,Yes,[O I]6300,6300.30,0.12,0.000019,0.000011,5.78,3.23
-M81_stacked.fits,7,N/A,N/A,563,1732.39,10.83,189.80,33.87,6363.87,0.13,0.63,0.14,3.01e+02,6.37e+01,16,Yes,[O I]6363,6363.78,0.09,0.000014,0.000020,4.33,5.98
-M81_stacked.fits,7,N/A,N/A,971,1799.47,7.31,136.82,20.29,6546.74,0.35,1.98,0.36,6.79e+02,1.22e+02,16,Yes,[NII]6549,6548.03,-1.29,-0.000197,0.000053,-59.15,15.99
-M81_stacked.fits,7,N/A,N/A,1003,1799.47,7.31,157.76,13.66,6560.62,0.50,5.49,0.60,2.17e+03,2.58e+02,16,Yes,Hα,6562.79,-2.17,-0.000330,0.000076,-98.94,22.83
-M81_stacked.fits,7,N/A,N/A,1051,1799.47,7.31,422.78,17.90,6582.13,0.12,2.64,0.14,2.80e+03,1.50e+02,16,Yes,[NII]6583,6583.41,-1.28,-0.000195,0.000019,-58.44,5.62
-M81_stacked.fits,7,N/A,N/A,1348,1625.34,7.73,140.79,14.15,6714.91,0.30,2.86,0.37,1.01e+03,1.48e+02,16,Yes,[SII]6717,6716.47,-1.56,-0.000232,0.000045,-69.61,13.53
-M81_stacked.fits,7,N/A,N/A,1383,1625.34,7.73,132.34,20.43,6729.79,0.21,1.23,0.23,4.08e+02,7.90e+01,16,Yes,[SII]6731,6730.85,-1.06,-0.000158,0.000031,-47.35,9.41
+SH-257-Star_stacked.fits,39,N/A,N/A,18,2832.11,14.36,49.48,49.78,6121.25,0.57,0.50,0.60,6.20e+01,7.12e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,41,2832.11,14.36,49.47,33.44,6129.30,0.86,1.13,0.92,1.40e+02,1.12e+02,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,63,2832.11,14.36,277.53,49.68,6139.99,0.10,0.50,0.11,3.48e+02,7.02e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,104,2832.11,14.36,49.23,17.10,6155.55,6.44,10.00,7.55,1.23e+03,1.11e+03,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,164,2891.28,4.54,19.22,50.06,6182.46,4.92,0.50,4.15,2.41e+01,2.01e+02,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,186,2891.28,4.54,49.94,47.85,6195.12,0.55,0.50,0.56,6.26e+01,6.10e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,227,2891.28,4.54,65.75,27.51,6210.96,0.73,1.53,0.75,2.51e+02,1.11e+02,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,263,2891.28,4.54,130.47,47.82,6229.47,0.21,0.50,0.21,1.64e+02,6.10e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,279,2891.28,4.54,133.40,46.23,6236.75,0.21,0.54,0.22,1.79e+02,6.32e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,317,2891.28,4.54,67.30,47.81,6253.55,0.41,0.50,0.41,8.43e+01,6.10e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,331,2891.28,4.54,68.75,38.28,6260.60,0.50,0.78,0.51,1.35e+02,7.72e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,358,2891.28,4.54,81.33,47.96,6273.66,0.34,0.50,0.34,1.02e+02,6.12e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,427,2845.91,83.30,98.73,122.82,6303.61,0.70,0.55,0.96,1.36e+02,2.77e+02,3,Yes,[O I]6300,6300.30,3.31,0.000526,0.000112,157.62,33.51
+SH-257-Star_stacked.fits,39,N/A,N/A,538,2914.73,10.23,74.76,48.13,6352.50,0.37,0.50,0.38,9.37e+01,6.55e+01,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,570,2914.73,10.23,87.92,31.16,6366.13,0.49,1.24,0.53,2.73e+02,1.15e+02,8,Yes,[O I]6363,6363.78,2.36,0.000370,0.000077,111.02,23.16
+SH-257-Star_stacked.fits,39,N/A,N/A,581,2914.73,10.23,126.13,35.57,6372.45,0.30,0.94,0.32,2.96e+02,9.59e+01,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,697,2808.27,1552.68,200.96,1545.22,6423.39,0.89,10.00,44.61,5.04e+03,6.12e+04,18,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,754,2965.69,10.10,203.62,61.88,6449.15,0.17,0.50,0.18,2.55e+02,8.16e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,804,2965.69,10.10,31.66,36.87,6469.71,1.91,1.44,2.01,1.15e+02,1.52e+02,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,819,2965.69,10.10,49.97,61.90,6478.15,0.71,0.50,0.72,6.26e+01,8.16e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,916,2838.42,10.11,139.03,221.94,6521.86,15.58,6.61,14.02,2.30e+03,8.43e+03,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,943,2838.42,10.11,85.90,162.52,6537.29,25.67,7.09,29.34,1.53e+03,9.08e+03,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,987,2838.42,10.11,92.51,152.92,6550.01,2.49,3.53,2.98,8.19e+02,1.99e+03,8,Yes,[NII]6549,6548.03,1.98,0.000302,0.000381,90.50,114.11
+SH-257-Star_stacked.fits,39,N/A,N/A,1008,2838.42,10.11,443.33,59.14,6562.99,0.08,0.50,0.08,5.56e+02,7.82e+01,8,Yes,Hα,6562.79,0.20,0.000030,0.000012,9.01,3.49
+SH-257-Star_stacked.fits,39,N/A,N/A,1031,2838.42,10.11,109.54,58.93,6573.19,0.31,0.50,0.31,1.37e+02,7.62e+01,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1055,2838.42,10.11,318.92,52.16,6583.58,0.12,0.66,0.13,5.28e+02,9.89e+01,8,Yes,[NII]6583,6583.41,0.17,0.000025,0.000019,7.55,5.56
+SH-257-Star_stacked.fits,39,N/A,N/A,1094,2838.42,10.11,80.89,16.17,6598.39,3.27,10.00,3.68,2.03e+03,8.78e+02,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1105,2838.42,10.11,31.41,38.01,6608.50,2.08,1.75,2.73,1.38e+02,2.76e+02,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1127,2838.42,10.11,104.53,44.94,6616.61,0.45,0.96,0.52,2.51e+02,1.45e+02,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1173,2838.42,10.11,546.60,59.12,6636.35,0.06,0.50,0.06,6.85e+02,7.81e+01,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1240,2589.15,2073.18,272.50,1570.94,6666.12,9.70,5.15,12.99,3.52e+03,2.91e+04,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1255,2589.15,2073.18,94.38,72.10,6673.81,0.56,1.40,0.94,3.32e+02,4.32e+02,8,Yes,He I,6678.15,-4.34,-0.000649,0.000084,-194.71,25.28
+SH-257-Star_stacked.fits,39,N/A,N/A,1300,2589.15,2073.18,242.99,2068.04,6689.80,1.25,10.00,46.18,6.09e+03,7.99e+04,8,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1352,2803.92,14.26,167.29,45.92,6716.72,0.15,0.50,0.17,2.10e+02,6.77e+01,9,Yes,[SII]6717,6716.47,0.25,0.000037,0.000023,11.00,6.90
+SH-257-Star_stacked.fits,39,N/A,N/A,1404,2608.62,10.72,99.64,35.00,6739.06,0.37,1.03,0.45,2.57e+02,1.29e+02,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1425,2608.62,10.72,132.03,13.71,6751.23,1.28,10.00,1.99,3.31e+03,7.25e+02,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1462,2608.62,10.72,137.61,44.94,6765.80,0.18,0.50,0.20,1.72e+02,6.50e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1476,2608.62,10.72,104.52,32.97,6771.12,0.33,0.94,0.36,2.45e+02,9.06e+01,6,Yes,None,None,None,None,None,None,None
+SH-257-Star_stacked.fits,39,N/A,N/A,1519,2608.62,10.72,69.48,28.94,6789.65,0.58,1.24,0.63,2.16e+02,1.11e+02,6,Yes,None,None,None,None,None,None,None
+M81_arms_stacked.fits,9,N/A,N/A,76,1275.35,72.23,396.60,121.48,6145.76,0.16,0.50,0.21,4.97e+02,2.36e+02,4,Yes,None,None,None,None,None,None,None
+M81_arms_stacked.fits,9,N/A,N/A,331,1354.81,83.09,817.03,172.96,6260.01,0.11,0.50,0.14,1.02e+03,3.01e+02,5,Yes,None,None,None,None,None,None,None
+M81_arms_stacked.fits,9,N/A,N/A,421,1415.89,7.52,399.89,22.45,6300.18,0.04,0.56,0.04,5.59e+02,3.78e+01,9,Yes,[O I]6300,6300.30,-0.12,-0.000020,0.000006,-5.89,1.67
+M81_arms_stacked.fits,9,N/A,N/A,563,1426.04,8.35,133.08,27.34,6363.93,0.14,0.59,0.15,1.97e+02,4.75e+01,11,Yes,[O I]6363,6363.78,0.15,0.000024,0.000022,7.29,6.46
+M81_arms_stacked.fits,9,N/A,N/A,586,1428.90,94.59,324.12,158.99,6373.98,0.26,0.50,0.33,4.06e+02,3.09e+02,4,Yes,None,None,None,None,None,None,None
+M81_arms_stacked.fits,9,N/A,N/A,1118,1424.85,16.59,216.13,40.10,6611.75,0.10,0.50,0.12,2.71e+02,6.53e+01,6,Yes,None,None,None,None,None,None,None
+M81_arms_stacked.fits,9,N/A,N/A,1383,1286.12,38.93,187.63,65.37,6730.50,0.18,0.50,0.23,2.35e+02,1.27e+02,4,Yes,[SII]6731,6730.85,-0.35,-0.000052,0.000027,-15.72,8.12
+M81_arms_stacked.fits,9,N/A,N/A,1469,1242.45,25.31,369.42,61.14,6768.77,0.09,0.50,0.10,4.63e+02,9.95e+01,6,Yes,None,None,None,None,None,None,None
+M81_arms_stacked.fits,9,N/A,N/A,1939,564.06,153.82,1007.05,258.09,6979.01,0.13,0.50,0.17,1.26e+03,5.03e+02,4,Yes,None,None,None,None,None,None,None
+SH-257-H2-cloud_stacked.fits,4,N/A,N/A,802,1532.40,7.31,70.44,23.56,6470.48,0.19,0.50,0.20,8.83e+01,3.48e+01,9,Yes,None,None,None,None,None,None,None
+SH-257-H2-cloud_stacked.fits,4,N/A,N/A,1008,1512.66,9.28,691.59,29.96,6562.80,0.03,0.55,0.03,9.55e+02,4.87e+01,10,Yes,Hα,6562.79,0.01,0.000002,0.000004,0.54,1.23
+SH-257-H2-cloud_stacked.fits,4,N/A,N/A,1054,1497.72,10.44,251.65,31.10,6583.39,0.07,0.50,0.08,3.15e+02,4.69e+01,8,Yes,[NII]6583,6583.41,-0.02,-0.000003,0.000011,-0.92,3.16
+SH-257-H2-cloud_stacked.fits,4,N/A,N/A,1351,1382.68,7.16,186.49,23.08,6716.46,0.07,0.50,0.07,2.34e+02,3.40e+01,9,Yes,[SII]6717,6716.47,-0.01,-0.000001,0.000010,-0.29,3.11
+M81_stacked.fits,7,1.14e+03,-1.32e+03,422,1755.05,10.81,390.87,32.46,6300.42,0.07,0.73,0.07,7.13e+02,7.11e+01,12,Yes,[O I]6300,6300.30,0.12,0.000019,0.000011,5.78,3.23
+M81_stacked.fits,7,1.14e+03,-1.32e+03,563,1732.39,10.83,189.78,33.87,6363.87,0.13,0.63,0.14,3.01e+02,6.37e+01,11,Yes,[O I]6363,6363.78,0.09,0.000014,0.000020,4.33,5.98
+M81_stacked.fits,7,1.14e+03,-1.32e+03,971,1799.47,7.31,136.82,20.29,6546.74,0.35,1.98,0.36,6.79e+02,1.22e+02,30,Yes,[NII]6549,6548.03,-1.29,-0.000197,0.000053,-59.15,15.99
+M81_stacked.fits,7,1.14e+03,-1.32e+03,1003,1799.47,7.31,157.76,13.66,6560.62,0.50,5.49,0.60,2.17e+03,2.58e+02,30,Yes,Hα,6562.79,-2.17,-0.000330,0.000076,-98.94,22.83
+M81_stacked.fits,7,1.14e+03,-1.32e+03,1051,1799.47,7.31,422.78,17.90,6582.13,0.12,2.64,0.14,2.80e+03,1.50e+02,30,Yes,[NII]6583,6583.41,-1.28,-0.000195,0.000019,-58.44,5.62
+M81_stacked.fits,7,1.14e+03,-1.32e+03,1348,1669.62,8.62,135.82,19.94,6714.92,0.20,1.26,0.23,4.27e+02,8.29e+01,15,Yes,[SII]6717,6716.47,-1.55,-0.000231,0.000030,-69.29,9.04
+M81_stacked.fits,7,1.14e+03,-1.32e+03,1383,1614.41,7.23,139.75,16.21,6729.78,0.18,1.38,0.20,4.85e+02,7.54e+01,16,Yes,[SII]6731,6730.85,-1.07,-0.000158,0.000026,-47.44,7.84

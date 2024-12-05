@@ -1,0 +1,29 @@
+# Configurations for image processing
+
+object_name: "NGC1514" 
+
+data_paths:
+  bias_frames: 'data/photo/offsets/'
+  dark_frames: 'data/photo/dark/'
+  flat_frames: 'data/photo/flats/'
+  science_images: 'data/photo/NGC1514/'
+
+filters_to_process:
+  - V
+  - R
+  - B
+  - Ha
+  - OIII
+
+process_dark_frames: True
+
+output_dirs:
+  base_output_dir: 'output'
+  reduced_dir: 'output/reduced'
+  aligned_dir: 'output/aligned'
+  stacked_dir: 'output/stacked'
+
+color_combinations:
+  - R: 'R'
+    G: 'OIII'
+    B: 'B'

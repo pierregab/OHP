@@ -7,6 +7,9 @@ from astropy.io import fits
 import argparse
 import yaml
 from astropy.visualization import (ImageNormalize, PercentileInterval, AsinhStretch)
+from skimage.filters import median
+from skimage.morphology import disk
+import re
 
 # -----------------------------------------------------------------------------
 # Script for Image Reduction, Alignment, Stacking, and Multiple Color Combinations
@@ -84,14 +87,14 @@ def create_master_bias(bias_files, output_dir):
     # Read the first bias file to get the shape and header
     data, header_ori = read_raw_image(bias_files[0], get_header=1)
     nx, ny = np.shape(data)
-    datastore = np.zeros((nx, ny, nfiles))
+    datastore = np.zeros((nfiles, nx, ny))
 
     for i in range(nfiles):
         print(f"  > Reading bias file {i+1}/{nfiles}: {bias_files[i]}")
-        datastore[:, :, i] = read_raw_image(bias_files[i])
+        datastore[i, :, :] = read_raw_image(bias_files[i])
 
     # Compute median and save as master_bias
-    result = np.median(datastore, axis=2)
+    result = np.median(datastore, axis=0)
     target_file = os.path.join(output_dir, 'master_bias.fits')
     header = header_ori
     header['OBJECT'] = 'MASTER_BIAS'
@@ -121,17 +124,17 @@ def create_master_dark(dark_files, master_bias_file, output_dir):
     # Read the first dark file to get the shape and header
     data, header_ori = read_raw_image(dark_files[0], get_header=1)
     nx, ny = np.shape(data)
-    datastore = np.zeros((nx, ny, nfiles))
+    datastore = np.zeros((nfiles, nx, ny))
 
     master_bias = read_raw_image(master_bias_file)
 
     for i in range(nfiles):
         print(f"  > Reading dark file {i+1}/{nfiles}: {dark_files[i]}")
         dark_data = read_raw_image(dark_files[i]) - master_bias
-        datastore[:, :, i] = dark_data
+        datastore[i, :, :] = dark_data
 
     # Compute median and save as master_dark
-    result = np.median(datastore, axis=2)
+    result = np.median(datastore, axis=0)
     target_file = os.path.join(output_dir, 'master_dark.fits')
     header = header_ori
     header['OBJECT'] = 'MASTER_DARK'
@@ -163,7 +166,7 @@ def create_master_flat(flat_files, master_bias_file, master_dark_file, filter_na
     # Read the first flat file to get the shape and header
     data, header_ori = read_raw_image(flat_files[0], get_header=1)
     nx, ny = np.shape(data)
-    datastore = np.zeros((nx, ny, nfiles))
+    datastore = np.zeros((nfiles, nx, ny))
 
     master_bias = read_raw_image(master_bias_file)
     master_dark = read_raw_image(master_dark_file)
@@ -179,10 +182,10 @@ def create_master_flat(flat_files, master_bias_file, master_dark_file, filter_na
             flat_normalized = flat_corrected
         else:
             flat_normalized = flat_corrected / median_val
-        datastore[:, :, i] = flat_normalized
+        datastore[i, :, :] = flat_normalized
 
     # Compute median flat and save as master flat
-    result = np.median(datastore, axis=2)
+    result = np.median(datastore, axis=0)
     target_file = os.path.join(output_dir, f'master_flat_{filter_name}.fits')
     header = header_ori
     header['OBJECT'] = f'MASTER_FLAT_{filter_name}'
@@ -232,37 +235,73 @@ def reduce_science_images(science_files, master_bias_file, master_dark_file, mas
 
     return reduced_files
 
-# Function to align images
-def align_images(reference_file, target_files, output_dir):
+# Function to preprocess images
+def preprocess_image(data):
     """
-    Aligns target images to a reference image using astroalign.
+    Preprocesses the image data to enhance features for alignment.
+
+    Steps:
+        - Normalize the image.
+        - Apply median filtering to reduce noise.
+    """
+    # Normalize the image
+    data_norm = (data - np.nanmin(data)) / (np.nanmax(data) - np.nanmin(data))
+
+    # Apply median filter
+    data_filtered = median(data_norm, disk(3))
+
+    return data_filtered
+
+# Enhanced function to align images
+def align_images(reference_file, target_files, output_dir, max_retries=3):
+    """
+    Aligns target images to a reference image using astroalign with enhanced robustness.
 
     Parameters:
         reference_file (str): Path to the reference FITS file.
         target_files (list): List of target FITS files to align.
         output_dir (str): Directory to save the aligned images.
+        max_retries (int): Number of retry attempts with adjusted parameters.
     """
     print("\n>>> Aligning Target Images")
+
+    # Read and preprocess reference image
     ref_data = read_raw_image(reference_file)
+    ref_data_pre = preprocess_image(ref_data)
     print(f"  - Reference image: {reference_file}")
 
-    # Save a copy of the reference image in the align directory with _align suffix
+    # Save a preprocessed copy of the reference image in the output directory with _align suffix
     base_ref, ext_ref = os.path.splitext(os.path.basename(reference_file))
     reference_align_file = os.path.join(output_dir, f'{base_ref}_align{ext_ref}')
-    write_fits_image(reference_align_file, ref_data)
-    print(f"  - Reference image saved as: {reference_align_file}")
+    write_fits_image(reference_align_file, ref_data_pre)
+    print(f"  - Preprocessed reference image saved as: {reference_align_file}")
 
     # Align target images
     for target_file in target_files:
-        print(f"  > Aligning target image: {target_file}")
+        print(f"\n  > Aligning target image: {target_file}")
         target_data = read_raw_image(target_file)
+        target_data_pre = preprocess_image(target_data)
 
-        try:
-            # Align the target image to the reference image
-            aligned_data, footprint = aa.register(np.float32(target_data), np.float32(ref_data))
-        except Exception as e:
-            print(f"    ! Alignment failed for {target_file}: {e}")
-            continue
+        success = False
+        attempt = 0
+        while attempt < max_retries and not success:
+            try:
+                # Optionally adjust max_control_points or other parameters here
+                aligned_data, footprint = aa.register(
+                    target_data_pre, ref_data_pre, max_control_points=100 - attempt*20
+                )
+                success = True
+                print(f"    - Alignment successful on attempt {attempt + 1}")
+            except Exception as e:
+                print(f"    ! Alignment attempt {attempt + 1} failed for {target_file}: {e}")
+                attempt += 1
+                if attempt < max_retries:
+                    print(f"    - Retrying with adjusted parameters...")
+                else:
+                    print(f"    ! All alignment attempts failed for {target_file}")
+
+        if not success:
+            continue  # Skip saving if alignment failed
 
         # Generate the filename for the aligned image
         base, ext = os.path.splitext(os.path.basename(target_file))
@@ -271,6 +310,20 @@ def align_images(reference_file, target_files, output_dir):
         # Save the aligned image
         write_fits_image(aligned_file, aligned_data)
         print(f"    - Aligned image saved to: {aligned_file}")
+
+        # Check and convert footprint
+        if footprint.dtype != bool:
+            print(f"    ! Unexpected footprint dtype: {footprint.dtype}. Converting to bool.")
+            footprint = footprint.astype(bool)
+
+        footprint_int = footprint.astype(np.uint8)
+
+        # Save the footprint as a separate FITS file
+        footprint_file = os.path.join(output_dir, f'{base}_footprint.fits')
+        write_fits_image(footprint_file, footprint_int)
+        print(f"    - Footprint saved to: {footprint_file}")
+
+    print("\n>>> Image Alignment Process Completed")
 
 # Function to rename aligned files to simpler names
 def rename_aligned_files(aligned_dir, filters_to_process):
@@ -364,8 +417,6 @@ def stack_images(renamed_files_dict, stacked_dir, object_name):
 
     return stacked_files
 
-import re
-
 def sanitize_filename(name):
     """
     Sanitizes a string to be safe for use as a filename.
@@ -441,7 +492,7 @@ def create_color_images(stacked_files, color_combinations, stacked_dir, object_n
 
         # Stack channels into an RGB image (height, width, 3)
         rgb_image = np.dstack((rgb_channels['R'], rgb_channels['G'], rgb_channels['B']))
-        
+
         # Verify the shape of the RGB image
         print(f"    - RGB image shape after stacking (height, width, 3): {rgb_image.shape}")
         # Expected shape: (height, width, 3)
@@ -455,7 +506,7 @@ def create_color_images(stacked_files, color_combinations, stacked_dir, object_n
 
         # Transpose the array to (3, height, width) to match FITS's (NAXIS3, NAXIS2, NAXIS1)
         rgb_image_fits = np.transpose(rgb_image, (2, 0, 1))
-        
+
         # Verify the shape after transposing
         print(f"    - RGB image shape after transposing for FITS (3, height, width): {rgb_image_fits.shape}")
         # Expected shape: (3, height, width)
@@ -472,7 +523,7 @@ def create_color_images(stacked_files, color_combinations, stacked_dir, object_n
         plt.figure(figsize=(8, 8))
         plt.imshow(rgb_image, origin='lower')
         plt.axis('off')
-        plt.title(f'{object_name} - Final RGB Image Combination {combo_idx}')  # Modified line
+        plt.title(f'{object_name} - Final RGB Image Combination {combo_idx}')
 
         # Define the base filename with the object name
         base_filename = f"{sanitized_object_name}_rgb_combo_{combo_idx}"
@@ -490,7 +541,7 @@ def create_color_images(stacked_files, color_combinations, stacked_dir, object_n
         header = fits.Header()
         header['OBJECT'] = object_name  # Keeps the original object name
         header['COMMENT'] = f'RGB Combination {combo_idx}: ' + ', '.join([f"{k}:{v}" for k, v in color_combination.items()])
-        
+
         # Add specific keywords to indicate RGB channels
         header['COLOR'] = 'RGB'  # Custom keyword to indicate color image
         header['CTYPE3'] = 'COLOR'  # Indicate that the third axis is color
@@ -539,7 +590,7 @@ def process_images(config):
     print(">>> Starting Image Reduction, Alignment, Stacking, and Color Combination Process\n" + "="*50)
 
     # Extract parameters from config
-    object_name = config.get('object_name', 'Unknown_Object')  # Added line
+    object_name = config.get('object_name', 'Unknown_Object')
     filters_to_process = config['filters_to_process']
     process_dark_frames = config['process_dark_frames']
     data_paths = config['data_paths']
@@ -624,7 +675,7 @@ def process_images(config):
 
         # Set the reference file for alignment (e.g., first reduced image of the first filter)
         if not reference_file and reduced_files:
-            reference_file = reduced_files[0]
+            reference_file = reduced_files[-1]
             print(f"  - Reference file set to: {reference_file}")
 
     # Step 3: Align images
@@ -638,11 +689,23 @@ def process_images(config):
     # Step 4: Rename aligned files to simpler names
     renamed_files_dict = rename_aligned_files(aligned_dir, filters_to_process)
 
+    # Include the reference file in the renamed files
+    ref_base, ref_ext = os.path.splitext(os.path.basename(reference_file))
+    ref_aligned_file = os.path.join(aligned_dir, f'{ref_base}_align{ref_ext}')
+    if os.path.exists(ref_aligned_file):
+        filter_name = next((f for f in filters_to_process if f in ref_base), None)
+        if filter_name:
+            new_name = f"{filter_name}_000_aligned.fits"
+            new_path = os.path.join(aligned_dir, new_name)
+            os.rename(ref_aligned_file, new_path)
+            print(f"    - Renamed reference aligned file {ref_aligned_file} to {new_path}")
+            renamed_files_dict[filter_name].insert(0, new_path)
+
     # Step 5: Stack images per filter
-    stacked_files = stack_images(renamed_files_dict, stacked_dir, object_name)  # Modified line
+    stacked_files = stack_images(renamed_files_dict, stacked_dir, object_name)
 
     # Step 6: Create final color images based on multiple color combinations
-    create_color_images(stacked_files, color_combinations, stacked_dir, object_name)  # Modified line
+    create_color_images(stacked_files, color_combinations, stacked_dir, object_name)
 
     print("\n>>> Image Reduction, Alignment, Stacking, and Color Combination Process Completed\n" + "="*50)
 
@@ -651,7 +714,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process astronomical images.')
     parser.add_argument(
         '--config',
-        default='config_SH2_257.yaml',
+        default='config.yaml',
         help='Path to configuration file (default: config.yaml)'
     )
     args = parser.parse_args()
